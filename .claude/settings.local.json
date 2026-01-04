@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7__query-docs",
+      "Bash(mkdir:*)",
+      "Bash(conda run:*)",
+      "Bash(/opt/homebrew/Caskroom/miniconda/base/envs/ecse/bin/python:*)",
+      "Bash(/Users/zlhmac/miniconda3/envs/ecse/bin/python:*)",
+      "Bash(find:*)",
+      "mcp__context7__resolve-library-id",
+      "Bash(cat:*)",
+      "Bash(python3:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}
