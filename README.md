@@ -76,7 +76,11 @@ pip install sqlglot pytest
 ### 1. 运行主程序
 
 ```bash
-# 使用 conda 环境运行
+# 方式一：激活环境后直接运行
+conda activate ecse
+python ecse_main.py
+
+# 方式二：使用 conda run（无需激活环境）
 conda run -n ecse python ecse_main.py
 ```
 
