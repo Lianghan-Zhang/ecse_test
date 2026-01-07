@@ -58,7 +58,8 @@ def write_mv_candidates(
         # Format edges for comment
         if edges:
             if hasattr(edges[0], 'to_tuple'):
-                edge_strs = [f"{e.left_table}.{e.left_col}={e.right_table}.{e.right_col}" for e in edges]
+                # CanonicalEdgeKey object - use instance_id for display
+                edge_strs = [f"{e.left_instance_id}.{e.left_col}={e.right_instance_id}.{e.right_col}" for e in edges]
             else:
                 edge_strs = [f"{e[0]}.{e[1]}={e[2]}.{e[3]}" for e in edges]
             edges_comment = ", ".join(edge_strs[:3])

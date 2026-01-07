@@ -18,7 +18,7 @@ from ecse_gen.join_graph import (
     build_qb_join_graph,
     check_ecse_eligibility,
 )
-from ecse_gen.qb_sources import extract_sources_from_select, get_cte_names_from_ast
+from ecse_gen.qb_sources import extract_sources_from_select, get_cte_names_from_ast, TableInstance
 from ecse_gen.join_extractor import extract_join_edges
 from ecse_gen.schema_meta import load_schema_meta
 
@@ -41,6 +41,11 @@ def build_graph_from_sql(sql: str, schema_meta, qb_id: str = "test::qb::main:0::
     return graph
 
 
+def get_instance_ids(vertices):
+    """Helper to get instance_ids from vertices set."""
+    return {v.instance_id.lower() for v in vertices}
+
+
 class TestQBJoinGraphBasic:
     """Tests for basic QBJoinGraph construction."""
 
@@ -54,8 +59,9 @@ class TestQBJoinGraphBasic:
         graph = build_graph_from_sql(sql, schema_meta)
 
         assert len(graph.vertices) == 2
-        assert "store_sales" in graph.vertices
-        assert "item" in graph.vertices
+        instance_ids = get_instance_ids(graph.vertices)
+        assert "ss" in instance_ids
+        assert "i" in instance_ids
         assert len(graph.canonical_edges) == 1
 
     def test_three_table_join(self, schema_meta):
@@ -82,7 +88,8 @@ class TestQBJoinGraphBasic:
 
         assert len(graph.vertices) == 2
         assert len(graph.directed_edges) == 1
-        assert ("store_sales", "customer") in graph.directed_edges
+        # Directed edges now use instance_id (alias)
+        assert ("ss", "c") in graph.directed_edges
         assert len(graph.undirected_edges) == 0
 
     def test_inner_join_creates_undirected_edge(self, schema_meta):
@@ -95,8 +102,8 @@ class TestQBJoinGraphBasic:
         graph = build_graph_from_sql(sql, schema_meta)
 
         assert len(graph.undirected_edges) == 1
-        # Undirected edge is normalized (sorted)
-        assert ("item", "store_sales") in graph.undirected_edges
+        # Undirected edge is normalized by instance_id (sorted)
+        assert ("i", "ss") in graph.undirected_edges
         assert len(graph.directed_edges) == 0
 
     def test_non_base_sources_tracked(self, schema_meta):
@@ -110,7 +117,8 @@ class TestQBJoinGraphBasic:
 
         # Only store_sales is a base table
         assert len(graph.vertices) == 1
-        assert "store_sales" in graph.vertices
+        instance_ids = get_instance_ids(graph.vertices)
+        assert "ss" in instance_ids
 
         # The derived source should be tracked
         assert len(graph.non_base_sources) == 1
@@ -188,7 +196,7 @@ class TestECSEEligibility:
         eligibility = graph.check_ecse_eligibility()
 
         assert eligibility.eligible is False
-        assert "Insufficient base tables" in eligibility.reason
+        assert "Insufficient base table" in eligibility.reason
 
     def test_ineligible_no_join_edges(self, schema_meta):
         """Test ineligible: tables but no join edges."""
@@ -228,36 +236,73 @@ class TestCanonicalEdgeKey:
         from ecse_gen.join_extractor import JoinEdge
 
         edge = JoinEdge(
-            left_table="item",
+            left_table="i",
             left_col="i_item_sk",
-            right_table="store_sales",
+            right_table="ss",
             right_col="ss_item_sk",
             op="=",
             join_type="INNER",
             origin="ON",
         )
+        left_source = TableInstance("i", "item")
+        right_source = TableInstance("ss", "store_sales")
 
-        key = CanonicalEdgeKey.from_join_edge(edge)
+        key = CanonicalEdgeKey.from_join_edge(edge, left_source, right_source)
 
-        assert key.left_table == "item"
+        # For INNER joins, should be normalized by instance_id
+        assert key.left_instance_id == "i"
         assert key.left_col == "i_item_sk"
-        assert key.right_table == "store_sales"
+        assert key.right_instance_id == "ss"
         assert key.right_col == "ss_item_sk"
+        assert key.left_base_table == "item"
+        assert key.right_base_table == "store_sales"
 
     def test_hashable(self):
-        """Test that CanonicalEdgeKey is hashable."""
-        key1 = CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER")
-        key2 = CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER")
+        """Test CanonicalEdgeKey is hashable."""
+        key1 = CanonicalEdgeKey(
+            left_instance_id="item",
+            left_col="i_item_sk",
+            right_instance_id="store_sales",
+            right_col="ss_item_sk",
+            op="=",
+            join_type="INNER",
+            left_base_table="item",
+            right_base_table="store_sales",
+        )
+        key2 = CanonicalEdgeKey(
+            left_instance_id="item",
+            left_col="i_item_sk",
+            right_instance_id="store_sales",
+            right_col="ss_item_sk",
+            op="=",
+            join_type="INNER",
+            left_base_table="item",
+            right_base_table="store_sales",
+        )
 
-        s = {key1, key2}
-        assert len(s) == 1
+        # Should be hashable and equal
+        assert hash(key1) == hash(key2)
+        assert key1 == key2
+
+        # Can be used in sets
+        edge_set = {key1, key2}
+        assert len(edge_set) == 1
 
     def test_to_tuple(self):
         """Test to_tuple method."""
-        key = CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER")
-        t = key.to_tuple()
+        key = CanonicalEdgeKey(
+            left_instance_id="item",
+            left_col="i_item_sk",
+            right_instance_id="store_sales",
+            right_col="ss_item_sk",
+            op="=",
+            join_type="INNER",
+            left_base_table="item",
+            right_base_table="store_sales",
+        )
+        tup = key.to_tuple()
 
-        assert t == ("a", "col1", "b", "col2", "=", "INNER")
+        assert tup == ("item", "i_item_sk", "item", "store_sales", "ss_item_sk", "store_sales", "=", "INNER")
 
 
 class TestJoinSetItem:
@@ -266,31 +311,44 @@ class TestJoinSetItem:
     def test_edge_count(self):
         """Test edge_count method."""
         edges = frozenset({
-            CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER"),
-            CanonicalEdgeKey("b", "col2", "c", "col3", "=", "INNER"),
+            CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER", "table_a", "table_b"),
+            CanonicalEdgeKey("b", "col2", "c", "col3", "=", "INNER", "table_b", "table_c"),
         })
-        item = JoinSetItem(edges, {"qb1"}, frozenset({"a", "b", "c"}), "a")
+        instances = frozenset({
+            TableInstance("a", "table_a"),
+            TableInstance("b", "table_b"),
+            TableInstance("c", "table_c"),
+        })
+        item = JoinSetItem(edges, {"qb1"}, instances, "table_a")
 
         assert item.edge_count() == 2
 
     def test_table_count(self):
         """Test table_count method."""
         edges = frozenset({
-            CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER"),
+            CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER", "table_a", "table_b"),
         })
-        item = JoinSetItem(edges, {"qb1"}, frozenset({"a", "b"}), "a")
+        instances = frozenset({
+            TableInstance("a", "table_a"),
+            TableInstance("b", "table_b"),
+        })
+        item = JoinSetItem(edges, {"qb1"}, instances, "table_a")
 
         assert item.table_count() == 2
 
     def test_to_dict(self):
         """Test to_dict method."""
         edges = frozenset({
-            CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER"),
+            CanonicalEdgeKey("a", "col1", "b", "col2", "=", "INNER", "table_a", "table_b"),
         })
-        item = JoinSetItem(edges, {"qb1", "qb2"}, frozenset({"a", "b"}), "a")
+        instances = frozenset({
+            TableInstance("a", "table_a"),
+            TableInstance("b", "table_b"),
+        })
+        item = JoinSetItem(edges, {"qb1", "qb2"}, instances, "table_a")
         d = item.to_dict()
 
-        assert d["fact_table"] == "a"
+        assert d["fact_table"] == "table_a"
         assert d["edge_count"] == 1
         assert d["table_count"] == 2
         assert sorted(d["qb_ids"]) == ["qb1", "qb2"]

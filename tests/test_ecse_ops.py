@@ -6,6 +6,7 @@ import pytest
 from pathlib import Path
 
 from ecse_gen.join_graph import CanonicalEdgeKey, JoinSetItem
+from ecse_gen.qb_sources import TableInstance
 from ecse_gen.ecse_ops import (
     ECSEJoinSet,
     from_join_set_item,
@@ -15,7 +16,7 @@ from ecse_gen.ecse_ops import (
     js_superset_subset,
     run_ecse_pipeline,
     _is_connected_edges,
-    _compute_tables_from_edges,
+    _compute_instances_from_edges,
     # Pruning
     PrunedJoinSet,
     PruneResult,
@@ -35,27 +36,41 @@ def schema_meta():
     return load_schema_meta(schema_path)
 
 
-def make_edge(left_table: str, left_col: str, right_table: str, right_col: str) -> CanonicalEdgeKey:
-    """Helper to create CanonicalEdgeKey."""
+def make_edge(
+    left_table: str, left_col: str, right_table: str, right_col: str,
+    left_instance: str | None = None, right_instance: str | None = None
+) -> CanonicalEdgeKey:
+    """Helper to create CanonicalEdgeKey.
+
+    Args:
+        left_table: Base table name for left side
+        left_col: Column name for left side
+        right_table: Base table name for right side
+        right_col: Column name for right side
+        left_instance: Instance ID (alias) for left side, defaults to left_table
+        right_instance: Instance ID (alias) for right side, defaults to right_table
+    """
     return CanonicalEdgeKey(
-        left_table=left_table,
+        left_instance_id=left_instance or left_table,
         left_col=left_col,
-        right_table=right_table,
+        right_instance_id=right_instance or right_table,
         right_col=right_col,
         op="=",
         join_type="INNER",
+        left_base_table=left_table,
+        right_base_table=right_table,
     )
 
 
 def make_joinset(edges: list[CanonicalEdgeKey], qb_ids: set[str], fact_table: str = "store_sales") -> ECSEJoinSet:
     """Helper to create ECSEJoinSet."""
-    tables = set()
+    instances = set()
     for e in edges:
-        tables.add(e.left_table)
-        tables.add(e.right_table)
+        instances.add(TableInstance(e.left_instance_id, e.left_base_table))
+        instances.add(TableInstance(e.right_instance_id, e.right_base_table))
     return ECSEJoinSet(
         edges=frozenset(edges),
-        tables=frozenset(tables),
+        instances=frozenset(instances),
         qb_ids=qb_ids,
         lineage=["test_created"],
         fact_table=fact_table,
@@ -105,10 +120,14 @@ class TestFromJoinSetItem:
     def test_conversion(self):
         """Test conversion from JoinSetItem."""
         edge1 = make_edge("store_sales", "ss_item_sk", "item", "i_item_sk")
+        instances = frozenset([
+            TableInstance("store_sales", "store_sales"),
+            TableInstance("item", "item"),
+        ])
         item = JoinSetItem(
             edges=frozenset([edge1]),
             qb_ids={"qb1", "qb2"},
-            tables=frozenset(["store_sales", "item"]),
+            instances=instances,
             fact_table="store_sales",
         )
 
@@ -375,17 +394,20 @@ class TestECSEPipeline:
         assert "after_superset_subset" in result.stats
 
 
-class TestComputeTablesFromEdges:
-    """Tests for _compute_tables_from_edges helper."""
+class TestComputeInstancesFromEdges:
+    """Tests for _compute_instances_from_edges helper."""
 
-    def test_extract_tables(self):
-        """Test extracting tables from edges."""
+    def test_extract_instances(self):
+        """Test extracting instances from edges."""
         edge1 = make_edge("store_sales", "ss_item_sk", "item", "i_item_sk")
         edge2 = make_edge("store_sales", "ss_sold_date_sk", "date_dim", "d_date_sk")
 
-        tables = _compute_tables_from_edges(frozenset([edge1, edge2]))
+        instances = _compute_instances_from_edges(frozenset([edge1, edge2]))
 
-        assert tables == frozenset(["store_sales", "item", "date_dim"])
+        # Should extract all unique instances
+        assert len(instances) == 3
+        instance_ids = {inst.instance_id for inst in instances}
+        assert instance_ids == {"store_sales", "item", "date_dim"}
 
 
 if __name__ == "__main__":

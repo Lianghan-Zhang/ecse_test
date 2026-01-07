@@ -12,6 +12,7 @@ from ecse_gen.join_graph import CanonicalEdgeKey
 from ecse_gen.ecse_ops import ECSEJoinSet
 from ecse_gen.schema_meta import load_schema_meta
 from ecse_gen.qb_extractor import extract_query_blocks_from_sql
+from ecse_gen.qb_sources import TableInstance
 from ecse_gen.mv_emitter import (
     ColumnRef,
     MVCandidate,
@@ -22,6 +23,9 @@ from ecse_gen.mv_emitter import (
     generate_mv_sql,
     emit_mv_candidates,
     _build_alias_map_from_qb,
+    _normalize_edge_instance_ids,
+    remap_column_instance_id,
+    remap_columns_to_joinset,
 )
 
 
@@ -38,15 +42,19 @@ def make_edge(
     right_table: str,
     right_col: str,
     join_type: str = "INNER",
+    left_instance: str | None = None,
+    right_instance: str | None = None,
 ) -> CanonicalEdgeKey:
     """Helper to create CanonicalEdgeKey."""
     return CanonicalEdgeKey(
-        left_table=left_table,
+        left_instance_id=left_instance or left_table,
         left_col=left_col,
-        right_table=right_table,
+        right_instance_id=right_instance or right_table,
         right_col=right_col,
         op="=",
         join_type=join_type,
+        left_base_table=left_table,
+        right_base_table=right_table,
     )
 
 
@@ -56,13 +64,13 @@ def make_joinset(
     fact_table: str = "store_sales",
 ) -> ECSEJoinSet:
     """Helper to create ECSEJoinSet."""
-    tables = set()
+    instances = set()
     for e in edges:
-        tables.add(e.left_table)
-        tables.add(e.right_table)
+        instances.add(TableInstance(e.left_instance_id, e.left_base_table))
+        instances.add(TableInstance(e.right_instance_id, e.right_base_table))
     return ECSEJoinSet(
         edges=frozenset(edges),
-        tables=frozenset(tables),
+        instances=frozenset(instances),
         qb_ids=qb_ids,
         lineage=["test_created"],
         fact_table=fact_table,
@@ -74,9 +82,9 @@ class TestColumnRef:
 
     def test_hash_and_equality(self):
         """Test ColumnRef hashing and equality."""
-        col1 = ColumnRef(table="store_sales", column="ss_item_sk")
-        col2 = ColumnRef(table="store_sales", column="ss_item_sk")
-        col3 = ColumnRef(table="store_sales", column="ss_sold_date_sk")
+        col1 = ColumnRef(instance_id="store_sales", column="ss_item_sk")
+        col2 = ColumnRef(instance_id="store_sales", column="ss_item_sk")
+        col3 = ColumnRef(instance_id="store_sales", column="ss_sold_date_sk")
 
         assert col1 == col2
         assert col1 != col3
@@ -84,8 +92,8 @@ class TestColumnRef:
 
     def test_set_deduplication(self):
         """Test ColumnRef set deduplication."""
-        col1 = ColumnRef(table="item", column="i_item_sk")
-        col2 = ColumnRef(table="item", column="i_item_sk")
+        col1 = ColumnRef(instance_id="item", column="i_item_sk")
+        col2 = ColumnRef(instance_id="item", column="i_item_sk")
 
         cols = {col1, col2}
         assert len(cols) == 1
@@ -110,8 +118,8 @@ class TestExtractColumnsFromQB:
         columns = extract_columns_from_qb(qb, base_tables, alias_map)
 
         # Should extract item.i_item_sk and item.i_brand
-        assert ColumnRef(table="item", column="i_item_sk") in columns
-        assert ColumnRef(table="item", column="i_brand") in columns
+        assert ColumnRef(instance_id="item", column="i_item_sk") in columns
+        assert ColumnRef(instance_id="item", column="i_brand") in columns
 
     def test_extract_aliased_columns(self):
         """Test extracting columns with table aliases."""
@@ -128,10 +136,10 @@ class TestExtractColumnsFromQB:
 
         columns = extract_columns_from_qb(qb, base_tables, alias_map)
 
-        # Should extract store_sales columns via alias
-        assert ColumnRef(table="store_sales", column="ss_ext_sales_price") in columns
-        assert ColumnRef(table="store_sales", column="ss_quantity") in columns
-        assert ColumnRef(table="store_sales", column="ss_item_sk") in columns
+        # Should extract store_sales columns via alias - instance_id preserves alias "ss"
+        assert ColumnRef(instance_id="ss", column="ss_ext_sales_price", base_table="store_sales") in columns
+        assert ColumnRef(instance_id="ss", column="ss_quantity", base_table="store_sales") in columns
+        assert ColumnRef(instance_id="ss", column="ss_item_sk", base_table="store_sales") in columns
 
     def test_exclude_nested_subquery_columns(self):
         """Test that columns from nested subqueries are excluded."""
@@ -149,9 +157,9 @@ class TestExtractColumnsFromQB:
 
         columns = extract_columns_from_qb(main_qb, base_tables, alias_map)
 
-        # Should only extract ss.ss_item_sk from main query
+        # Should only extract ss.ss_item_sk from main query - instance_id preserves alias "ss"
         # i.i_price should NOT be included (it's in subquery)
-        assert ColumnRef(table="store_sales", column="ss_item_sk") in columns
+        assert ColumnRef(instance_id="ss", column="ss_item_sk", base_table="store_sales") in columns
 
 
 class TestIsInNestedSelect:
@@ -247,38 +255,50 @@ class TestBuildJoinPlan:
         edge1 = make_edge("store_sales", "ss_item_sk", "item", "i_item_sk")
         edge2 = make_edge("store_sales", "ss_sold_date_sk", "date_dim", "d_date_sk")
 
-        tables = {"store_sales", "item", "date_dim"}
+        instances = frozenset({
+            TableInstance("store_sales", "store_sales"),
+            TableInstance("item", "item"),
+            TableInstance("date_dim", "date_dim"),
+        })
         edges = [edge1, edge2]
 
-        ordered_tables, join_specs, warnings = build_join_plan(tables, edges)
+        ordered_instances, join_specs, warnings, is_valid = build_join_plan(instances, edges)
 
         # First table is alphabetically first (date_dim)
         # Then greedy: date_dim connects to store_sales, store_sales connects to item
-        assert ordered_tables[0] == "date_dim"
-        assert set(ordered_tables) == {"date_dim", "item", "store_sales"}
+        assert is_valid
+        assert ordered_instances[0].instance_id == "date_dim"
+        instance_ids = {inst.instance_id for inst in ordered_instances}
+        assert instance_ids == {"date_dim", "item", "store_sales"}
         assert len(warnings) == 0
 
     def test_left_join_preserved_first(self):
         """Test LEFT joins: preserved side comes before nullable side."""
         edge1 = make_edge("store_sales", "ss_customer_sk", "customer", "c_customer_sk", "LEFT")
 
-        tables = {"store_sales", "customer"}
+        instances = frozenset({
+            TableInstance("store_sales", "store_sales"),
+            TableInstance("customer", "customer"),
+        })
         edges = [edge1]
 
-        ordered_tables, join_specs, warnings = build_join_plan(tables, edges)
+        ordered_instances, join_specs, warnings, is_valid = build_join_plan(instances, edges)
 
         # store_sales (preserved) should come before customer (nullable)
-        assert ordered_tables[0] == "store_sales"
-        assert ordered_tables[1] == "customer"
+        assert is_valid
+        assert ordered_instances[0].instance_id == "store_sales"
+        assert ordered_instances[1].instance_id == "customer"
 
     def test_single_table_no_joins(self):
         """Test single table returns no join specs."""
-        tables = {"store_sales"}
+        instances = frozenset({TableInstance("store_sales", "store_sales")})
         edges = []
 
-        ordered_tables, join_specs, warnings = build_join_plan(tables, edges)
+        ordered_instances, join_specs, warnings, is_valid = build_join_plan(instances, edges)
 
-        assert ordered_tables == ["store_sales"]
+        assert is_valid
+        assert len(ordered_instances) == 1
+        assert ordered_instances[0].instance_id == "store_sales"
         assert len(join_specs) == 0
 
     def test_mixed_joins(self):
@@ -286,14 +306,20 @@ class TestBuildJoinPlan:
         edge1 = make_edge("store_sales", "ss_item_sk", "item", "i_item_sk", "INNER")
         edge2 = make_edge("store_sales", "ss_promo_sk", "promotion", "p_promo_sk", "LEFT")
 
-        tables = {"store_sales", "item", "promotion"}
+        instances = frozenset({
+            TableInstance("store_sales", "store_sales"),
+            TableInstance("item", "item"),
+            TableInstance("promotion", "promotion"),
+        })
         edges = [edge1, edge2]
 
-        ordered_tables, join_specs, warnings = build_join_plan(tables, edges)
+        ordered_instances, join_specs, warnings, is_valid = build_join_plan(instances, edges)
 
         # LEFT join should enforce store_sales before promotion
-        ss_idx = ordered_tables.index("store_sales")
-        promo_idx = ordered_tables.index("promotion")
+        assert is_valid
+        instance_ids = [inst.instance_id for inst in ordered_instances]
+        ss_idx = instance_ids.index("store_sales")
+        promo_idx = instance_ids.index("promotion")
         assert ss_idx < promo_idx
 
 
@@ -304,14 +330,17 @@ class TestGenerateMVSQL:
         """Test simple SELECT generation with simplified alias strategy."""
         edge1 = make_edge("store_sales", "ss_item_sk", "item", "i_item_sk")
 
-        tables = ["item", "store_sales"]
-        join_specs = [("INNER", "store_sales", edge1)]
+        instances = [
+            TableInstance("item", "item"),
+            TableInstance("store_sales", "store_sales"),
+        ]
+        join_specs = [("INNER", TableInstance("store_sales", "store_sales"), [edge1])]
         columns = [
-            ColumnRef(table="item", column="i_item_sk"),
-            ColumnRef(table="store_sales", column="ss_item_sk"),
+            ColumnRef(instance_id="item", column="i_item_sk"),
+            ColumnRef(instance_id="store_sales", column="ss_item_sk"),
         ]
 
-        sql = generate_mv_sql(tables, join_specs, columns)
+        sql = generate_mv_sql(instances, join_specs, columns)
 
         assert "SELECT" in sql
         # No conflict: columns should NOT have aliases (simplified strategy)
@@ -325,11 +354,11 @@ class TestGenerateMVSQL:
 
     def test_no_columns_select_star(self):
         """Test SELECT * when no columns specified."""
-        tables = ["store_sales"]
+        instances = [TableInstance("store_sales", "store_sales")]
         join_specs = []
         columns = []
 
-        sql = generate_mv_sql(tables, join_specs, columns)
+        sql = generate_mv_sql(instances, join_specs, columns)
 
         assert "SELECT" in sql
         assert "*" in sql
@@ -338,25 +367,28 @@ class TestGenerateMVSQL:
         """Test LEFT JOIN SQL generation."""
         edge1 = make_edge("store_sales", "ss_customer_sk", "customer", "c_customer_sk", "LEFT")
 
-        tables = ["store_sales", "customer"]
-        join_specs = [("LEFT", "customer", edge1)]
-        columns = [ColumnRef(table="store_sales", column="ss_customer_sk")]
+        instances = [
+            TableInstance("store_sales", "store_sales"),
+            TableInstance("customer", "customer"),
+        ]
+        join_specs = [("LEFT", TableInstance("customer", "customer"), [edge1])]
+        columns = [ColumnRef(instance_id="store_sales", column="ss_customer_sk")]
 
-        sql = generate_mv_sql(tables, join_specs, columns)
+        sql = generate_mv_sql(instances, join_specs, columns)
 
         assert "LEFT JOIN customer" in sql
 
     def test_column_ordering(self):
         """Test columns are ordered by (table, column) with simplified alias strategy."""
-        tables = ["store_sales"]
+        instances = [TableInstance("store_sales", "store_sales")]
         join_specs = []
         columns = [
-            ColumnRef(table="store_sales", column="ss_quantity"),
-            ColumnRef(table="store_sales", column="ss_item_sk"),
-            ColumnRef(table="item", column="i_brand"),
+            ColumnRef(instance_id="store_sales", column="ss_quantity"),
+            ColumnRef(instance_id="store_sales", column="ss_item_sk"),
+            ColumnRef(instance_id="item", column="i_brand"),
         ]
 
-        sql = generate_mv_sql(tables, join_specs, columns)
+        sql = generate_mv_sql(instances, join_specs, columns)
 
         # No conflict: columns should NOT have aliases (simplified strategy)
         # Columns ordered by (table, column): item.i_brand < store_sales.ss_item_sk < store_sales.ss_quantity
@@ -373,15 +405,18 @@ class TestGenerateMVSQL:
 
     def test_column_conflict_adds_alias(self):
         """Test that column name conflicts result in table__column aliases."""
-        tables = ["customer", "order"]
+        instances = [
+            TableInstance("customer", "customer"),
+            TableInstance("order", "order"),
+        ]
         join_specs = []
         columns = [
-            ColumnRef(table="customer", column="id"),  # Conflict: same name 'id'
-            ColumnRef(table="order", column="id"),      # Conflict: same name 'id'
-            ColumnRef(table="customer", column="name"), # No conflict
+            ColumnRef(instance_id="customer", column="id"),  # Conflict: same name 'id'
+            ColumnRef(instance_id="order", column="id"),      # Conflict: same name 'id'
+            ColumnRef(instance_id="customer", column="name"), # No conflict
         ]
 
-        sql = generate_mv_sql(tables, join_specs, columns)
+        sql = generate_mv_sql(instances, join_specs, columns)
 
         # Conflicting columns should have table__column aliases
         assert "customer.id AS customer__id" in sql
@@ -460,6 +495,96 @@ class TestBuildAliasMapFromQB:
 
         assert alias_map.get("ss") == "store_sales"
         assert alias_map.get("i") == "item"
+
+
+class TestColumnRefRemap:
+    """Tests for P0-4 ColumnRef instance remapping."""
+
+    def test_remap_already_valid(self):
+        """Test column with already valid instance_id is unchanged."""
+        col = ColumnRef(instance_id="ss", column="ss_item_sk", base_table="store_sales")
+        instances = frozenset({TableInstance("ss", "store_sales")})
+        valid_ids = {inst.instance_id.lower() for inst in instances}
+        base_to_insts = {"store_sales": ["ss"]}
+
+        new_col, warning = remap_column_instance_id(col, valid_ids, base_to_insts)
+
+        assert new_col is not None
+        assert new_col.instance_id == "ss"
+        assert warning is None
+
+    def test_remap_base_table_to_instance(self):
+        """Test column with instance_id==base_table remaps to actual instance."""
+        # Column uses base_table name as instance_id
+        col = ColumnRef(instance_id="store_sales", column="ss_item_sk", base_table="store_sales")
+        # But joinset uses alias 'ss'
+        instances = frozenset({TableInstance("ss", "store_sales")})
+        valid_ids = {inst.instance_id.lower() for inst in instances}
+        base_to_insts = {"store_sales": ["ss"]}
+
+        new_col, warning = remap_column_instance_id(col, valid_ids, base_to_insts)
+
+        assert new_col is not None
+        assert new_col.instance_id == "ss"  # Remapped to actual instance
+        assert warning is None
+
+    def test_remap_fails_multiple_instances(self):
+        """Test remap fails when base_table has multiple instances."""
+        col = ColumnRef(instance_id="date_dim", column="d_date_sk", base_table="date_dim")
+        # Multiple date_dim instances
+        instances = frozenset({
+            TableInstance("d1", "date_dim"),
+            TableInstance("d2", "date_dim"),
+        })
+        valid_ids = {inst.instance_id.lower() for inst in instances}
+        base_to_insts = {"date_dim": ["d1", "d2"]}
+
+        new_col, warning = remap_column_instance_id(col, valid_ids, base_to_insts)
+
+        assert new_col is None  # Cannot safely remap
+        assert warning is not None
+        assert "multiple instances" in warning
+
+    def test_remap_columns_to_joinset(self):
+        """Test remapping a set of columns to joinset instances."""
+        columns = {
+            ColumnRef(instance_id="store_sales", column="ss_item_sk", base_table="store_sales"),
+            ColumnRef(instance_id="item", column="i_brand", base_table="item"),
+        }
+        instances = frozenset({
+            TableInstance("ss", "store_sales"),
+            TableInstance("i", "item"),
+        })
+
+        remapped, warnings, is_valid = remap_columns_to_joinset(columns, instances)
+
+        assert is_valid
+        assert len(remapped) == 2
+        instance_ids = {col.instance_id for col in remapped}
+        assert instance_ids == {"ss", "i"}
+
+
+class TestEdgeInstanceNormalization:
+    """Tests for edge instance normalization with mismatched aliases."""
+
+    def test_edge_uses_base_table_instance_uses_alias(self):
+        """Test edge with base_table name when instance uses alias."""
+        # Edge uses base_table names as instance_ids
+        edge = make_edge("item", "i_item_sk", "store_sales", "ss_item_sk",
+                         left_instance="item", right_instance="store_sales")
+        # But instances use aliases
+        instances = frozenset({
+            TableInstance("i", "item"),
+            TableInstance("ss", "store_sales"),
+        })
+
+        normalized, warnings, is_valid = _normalize_edge_instance_ids([edge], instances)
+
+        assert is_valid
+        assert len(normalized) == 1
+        # Edge should be remapped to use aliases
+        assert normalized[0].left_instance_id == "i"
+        assert normalized[0].right_instance_id == "ss"
 
 
 if __name__ == "__main__":

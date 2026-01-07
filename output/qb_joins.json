@@ -1,14 +1,14 @@
 {
   "meta": {
     "workload_dir": "/Users/zlhmac/code/Python_project/ECSE_test/tpcds-spark",
-    "schema_meta": "/Users/zlhmac/code/Python_project/ECSE_test/tpcds_full_schema.json",
+    "schema_meta": "/Users/zlhmac/code/Python_project/ECSE_test/schema_meta.json",
     "dialect": "spark",
     "alpha": 2,
     "beta": 2,
     "enable_union": true,
     "enable_superset": true
   },
-  "generated_at": "2026-01-04T14:40:52.299553",
+  "generated_at": "2026-01-06T16:08:46.473291",
   "qb_count": 396,
   "mv_count": 0,
   "mv_candidates": [],
@@ -33,7 +33,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -198,7 +198,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q1.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -624,7 +624,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -795,7 +795,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "cte_name": "cross_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -980,7 +980,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "avg_sales",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1123,7 +1123,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -1205,7 +1205,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14a.sql::qb::union_branch:7::root.from.subquery3.union.left.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1225,7 +1225,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14a.sql::qb::union_branch:7::root.from.subquery3.union.left.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1308,7 +1308,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14a.sql::qb::union_branch:8::root.from.subquery3.union.left.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1328,7 +1328,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14a.sql::qb::union_branch:8::root.from.subquery3.union.left.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1411,7 +1411,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14a.sql::qb::union_branch:9::root.from.subquery3.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1431,7 +1431,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14a.sql::qb::union_branch:9::root.from.subquery3.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1469,7 +1469,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "cte_name": "cross_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1654,7 +1654,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "avg_sales",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1830,7 +1830,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -1907,7 +1907,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14b.sql::qb::subquery:3::root.from.subquery3",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1940,7 +1940,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q14b.sql::qb::subquery:3::root.from.subquery3",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -1960,7 +1960,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14b.sql::qb::subquery:3::root.from.subquery3",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2038,7 +2038,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14b.sql::qb::subquery:7::root.join.subquery7",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2071,7 +2071,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q14b.sql::qb::subquery:7::root.join.subquery7",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2091,7 +2091,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q14b.sql::qb::subquery:7::root.join.subquery7",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2288,7 +2288,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q16.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2318,7 +2318,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q16.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2728,7 +2728,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2748,7 +2748,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q2.sql::qb::union_branch:1::root.with.wscs.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2768,7 +2768,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 2,
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2798,7 +2798,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "cte_name": "wswscs",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2828,7 +2828,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -2867,7 +2867,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q2.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2907,7 +2907,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q2.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -2989,7 +2989,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -3201,7 +3201,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "max_store_sales",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3310,7 +3310,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23a.sql::qb::cte:best_ss_customer::root.with.best_ss_customer",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3330,7 +3330,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -3402,7 +3402,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23a.sql::qb::union_branch:1::root.from.subquery3.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3422,7 +3422,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23a.sql::qb::union_branch:1::root.from.subquery3.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3495,7 +3495,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23a.sql::qb::union_branch:2::root.from.subquery3.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3515,7 +3515,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23a.sql::qb::union_branch:2::root.from.subquery3.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3589,7 +3589,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "max_store_sales",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3698,7 +3698,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23b.sql::qb::cte:best_ss_customer::root.with.best_ss_customer",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3718,7 +3718,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -3804,7 +3804,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23b.sql::qb::union_branch:1::root.from.subquery3.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3824,7 +3824,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23b.sql::qb::union_branch:1::root.from.subquery3.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3911,7 +3911,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23b.sql::qb::union_branch:2::root.from.subquery3.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -3931,7 +3931,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q23b.sql::qb::union_branch:2::root.from.subquery3.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4065,7 +4065,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -4084,7 +4084,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q24a.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4218,7 +4218,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -4237,7 +4237,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q24b.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4646,7 +4646,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -4674,7 +4674,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q28.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4703,7 +4703,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q28.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4732,7 +4732,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q28.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4761,7 +4761,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q28.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4790,7 +4790,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q28.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -4819,7 +4819,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q28.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -5187,7 +5187,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q30.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -5433,7 +5433,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -5642,7 +5642,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q33.sql::qb::cte:ss::root.with.ss",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -5747,7 +5747,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q33.sql::qb::cte:cs::root.with.cs",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -5852,7 +5852,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q33.sql::qb::cte:ws::root.with.ws",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -5872,7 +5872,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -5891,7 +5891,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "parent_qb_id": "q33.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -5912,7 +5912,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "parent_qb_id": "q33.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -5933,7 +5933,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 3,
       "parent_qb_id": "q33.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -5968,7 +5968,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -6441,7 +6441,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -6630,7 +6630,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "inv",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -6751,7 +6751,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -6775,7 +6775,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "inv",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -6900,7 +6900,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -7206,7 +7206,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -7328,7 +7328,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -7352,7 +7352,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q41.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7533,7 +7533,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "No join edges between base tables",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -7557,7 +7557,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q44.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7577,7 +7577,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q44.sql::qb::subquery:1::root.from.subquery1",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7602,7 +7602,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q44.sql::qb::subquery:2::root.from.subquery1.from.subquery2",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7631,7 +7631,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q44.sql::qb::subquery:3::root.from.subquery1.from.subquery2.from.subquery3",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7656,7 +7656,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q44.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7676,7 +7676,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q44.sql::qb::subquery:5::root.join.subquery5",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7701,7 +7701,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q44.sql::qb::subquery:6::root.join.subquery5.from.subquery6",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7730,7 +7730,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q44.sql::qb::subquery:7::root.join.subquery5.from.subquery6.from.subquery7",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -7844,7 +7844,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q45.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8170,7 +8170,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "v2",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8203,7 +8203,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -8299,7 +8299,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8319,7 +8319,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q49.sql::qb::union_branch:1::root.union.left.union.left",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8427,7 +8427,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8447,7 +8447,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q49.sql::qb::union_branch:2::root.union.left.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8555,7 +8555,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 3,
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8575,7 +8575,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q49.sql::qb::union_branch:3::root.union.right",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -8721,7 +8721,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 1,
       "parent_qb_id": "q5.sql::qb::cte:ssr::root.with.ssr",
       "mv_sql_file": "mv_candidates.sql",
@@ -8742,7 +8742,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 2,
       "parent_qb_id": "q5.sql::qb::cte:ssr::root.with.ssr",
       "mv_sql_file": "mv_candidates.sql",
@@ -8806,7 +8806,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 3,
       "parent_qb_id": "q5.sql::qb::cte:csr::root.with.csr",
       "mv_sql_file": "mv_candidates.sql",
@@ -8827,7 +8827,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 4,
       "parent_qb_id": "q5.sql::qb::cte:csr::root.with.csr",
       "mv_sql_file": "mv_candidates.sql",
@@ -8891,7 +8891,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 5,
       "parent_qb_id": "q5.sql::qb::cte:wsr::root.with.wsr",
       "mv_sql_file": "mv_candidates.sql",
@@ -8957,7 +8957,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -8976,7 +8976,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 7,
       "parent_qb_id": "q5.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -8997,7 +8997,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 8,
       "parent_qb_id": "q5.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -9018,7 +9018,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 9,
       "parent_qb_id": "q5.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -9235,7 +9235,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -9254,7 +9254,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q51.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -9298,7 +9298,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q51.sql::qb::subquery:1::root.from.subquery1",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -9384,7 +9384,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -9545,7 +9545,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 1,
       "parent_qb_id": "q54.sql::qb::cte:my_customers::root.with.my_customers",
       "mv_sql_file": "mv_candidates.sql",
@@ -9566,7 +9566,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 2,
       "parent_qb_id": "q54.sql::qb::cte:my_customers::root.with.my_customers",
       "mv_sql_file": "mv_candidates.sql",
@@ -9678,7 +9678,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q54.sql::qb::cte:my_revenue::root.with.my_revenue",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -9707,7 +9707,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q54.sql::qb::cte:my_revenue::root.with.my_revenue",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -9727,7 +9727,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "segments",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -9747,7 +9747,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -9912,7 +9912,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q56.sql::qb::cte:ss::root.with.ss",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10017,7 +10017,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q56.sql::qb::cte:cs::root.with.cs",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10122,7 +10122,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q56.sql::qb::cte:ws::root.with.ws",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10142,7 +10142,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -10161,7 +10161,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "parent_qb_id": "q56.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -10182,7 +10182,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "parent_qb_id": "q56.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -10203,7 +10203,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 3,
       "parent_qb_id": "q56.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -10366,7 +10366,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "v2",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10399,7 +10399,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -10477,7 +10477,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q58.sql::qb::cte:ss_items::root.with.ss_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10502,7 +10502,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q58.sql::qb::subquery:1::root.with.ss_items.in.subquery1",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10581,7 +10581,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q58.sql::qb::cte:cs_items::root.with.cs_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10606,7 +10606,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q58.sql::qb::subquery:3::root.with.cs_items.in.subquery3",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10685,7 +10685,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q58.sql::qb::cte:ws_items::root.with.ws_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10710,7 +10710,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q58.sql::qb::subquery:5::root.with.ws_items.in.subquery5",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -10784,7 +10784,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -10852,7 +10852,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -11063,7 +11063,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q6.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -11093,7 +11093,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q6.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -11198,7 +11198,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q60.sql::qb::cte:ss::root.with.ss",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -11303,7 +11303,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q60.sql::qb::cte:cs::root.with.cs",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -11408,7 +11408,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q60.sql::qb::cte:ws::root.with.ws",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -11428,7 +11428,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -11447,7 +11447,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "parent_qb_id": "q60.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -11468,7 +11468,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "parent_qb_id": "q60.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -11489,7 +11489,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 3,
       "parent_qb_id": "q60.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -11515,7 +11515,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -11862,7 +11862,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -12342,7 +12342,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -12428,7 +12428,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q65.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -12528,7 +12528,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -12734,7 +12734,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -12753,7 +12753,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q67.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -13370,7 +13370,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q70.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -13807,7 +13807,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -14110,7 +14110,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -14129,7 +14129,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "cte_name": "all_sales",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -14438,7 +14438,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -14457,7 +14457,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -14937,7 +14937,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -14971,7 +14971,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "parent_qb_id": "q77.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -14997,7 +14997,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "parent_qb_id": "q77.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -15033,7 +15033,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 3,
       "parent_qb_id": "q77.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -15290,7 +15290,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -15319,7 +15319,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -15488,7 +15488,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q8.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -15513,7 +15513,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "union_branch_index": 1,
       "parent_qb_id": "q8.sql::qb::subquery:1::root.join.subquery1",
       "mv_sql_file": "mv_candidates.sql",
@@ -15534,7 +15534,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "parent_qb_id": "q8.sql::qb::subquery:1::root.join.subquery1",
       "mv_sql_file": "mv_candidates.sql",
@@ -15934,7 +15934,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -15953,7 +15953,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 1,
       "parent_qb_id": "q80.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -15974,7 +15974,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 2,
       "parent_qb_id": "q80.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -15995,7 +15995,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "union_branch_index": 3,
       "parent_qb_id": "q80.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
@@ -16141,7 +16141,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q81.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16299,7 +16299,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q83.sql::qb::cte:sr_items::root.with.sr_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16324,7 +16324,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q83.sql::qb::subquery:1::root.with.sr_items.in.subquery1",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16403,7 +16403,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q83.sql::qb::cte:cr_items::root.with.cr_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16428,7 +16428,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q83.sql::qb::subquery:3::root.with.cr_items.in.subquery3",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16507,7 +16507,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q83.sql::qb::cte:wr_items::root.with.wr_items",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16532,7 +16532,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q83.sql::qb::subquery:5::root.with.wr_items.in.subquery5",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -16581,7 +16581,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -16896,7 +16896,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -17115,7 +17115,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -17779,7 +17779,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -17875,7 +17875,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -17899,7 +17899,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -17924,7 +17924,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -17949,7 +17949,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -17974,7 +17974,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -17999,7 +17999,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18024,7 +18024,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18049,7 +18049,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18074,7 +18074,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18099,7 +18099,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18124,7 +18124,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18149,7 +18149,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18174,7 +18174,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18199,7 +18199,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18224,7 +18224,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18249,7 +18249,7 @@
         }
       ],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q9.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18274,7 +18274,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -18675,7 +18675,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },
@@ -18855,7 +18855,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q94.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18885,7 +18885,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q94.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -18928,8 +18928,8 @@
         }
       ],
       "filter_predicates": [],
-      "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_eligible": true,
+      "ecse_reason": "OK",
       "cte_name": "ws_wh",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -19047,7 +19047,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (1)",
+      "ecse_reason": "Insufficient base table instances (1)",
       "parent_qb_id": "q95.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -19067,7 +19067,7 @@
       "join_edges": [],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "parent_qb_id": "q95.sql::qb::main:0::root",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
@@ -19270,7 +19270,7 @@
       ],
       "filter_predicates": [],
       "ecse_eligible": false,
-      "ecse_reason": "Insufficient base tables (0)",
+      "ecse_reason": "Insufficient base table instances (0)",
       "mv_sql_file": "mv_candidates.sql",
       "mv_candidates": []
     },

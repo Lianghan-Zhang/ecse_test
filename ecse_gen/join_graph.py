@@ -6,6 +6,8 @@ Handles:
 - Connectivity checking for ECSE eligibility
 - JoinSet creation with canonical edge keys
 - Fact table detection and grouping
+
+Key change: Uses TableInstance (instance_id + base_table) to preserve alias semantics.
 """
 
 from dataclasses import dataclass, field
@@ -15,6 +17,8 @@ if TYPE_CHECKING:
     from ecse_gen.schema_meta import SchemaMeta
     from ecse_gen.join_extractor import JoinEdge
     from ecse_gen.qb_sources import QBSources
+
+from ecse_gen.qb_sources import TableInstance
 
 
 @dataclass
@@ -32,39 +36,84 @@ class CanonicalEdgeKey:
     """
     Canonical key for a join edge (for deduplication and hashing).
 
-    For INNER joins: tables/cols normalized by lexicographic order.
+    Uses instance_id (alias) as primary identifier, preserving multi-alias semantics.
+    For INNER joins: tables/cols normalized by lexicographic order (by instance_id).
     For LEFT joins: direction preserved (left=preserved, right=nullable).
+
+    The base_table fields are used for schema validation but not for hashing/equality.
     """
-    left_table: str
+    # Primary key fields (used for hash/eq)
+    left_instance_id: str      # Alias used in query (e.g., "d1", "iss")
     left_col: str
-    right_table: str
+    right_instance_id: str     # Alias used in query
     right_col: str
     op: str
     join_type: str
 
+    # Metadata fields (NOT used for hash/eq, only for schema validation)
+    left_base_table: str = field(compare=False, hash=False, default="")
+    right_base_table: str = field(compare=False, hash=False, default="")
+
     @classmethod
-    def from_join_edge(cls, edge: "JoinEdge") -> "CanonicalEdgeKey":
-        """Create canonical key from JoinEdge."""
-        # JoinEdge is already normalized in its __post_init__
+    def from_join_edge(
+        cls,
+        edge: "JoinEdge",
+        left_source: "TableInstance",
+        right_source: "TableInstance",
+    ) -> "CanonicalEdgeKey":
+        """
+        Create canonical key from JoinEdge with TableInstance info.
+
+        Args:
+            edge: The JoinEdge object
+            left_source: TableInstance for left side
+            right_source: TableInstance for right side
+        """
+        left_id = left_source.instance_id.lower()
+        right_id = right_source.instance_id.lower()
+        left_col = edge.left_col.lower()
+        right_col = edge.right_col.lower()
+        left_base = left_source.base_table.lower()
+        right_base = right_source.base_table.lower()
+
+        # Normalize INNER joins by sorting instance_id
+        if edge.join_type != "LEFT":
+            if (left_id, left_col) > (right_id, right_col):
+                left_id, right_id = right_id, left_id
+                left_col, right_col = right_col, left_col
+                left_base, right_base = right_base, left_base
+
         return cls(
-            left_table=edge.left_table.lower(),
-            left_col=edge.left_col.lower(),
-            right_table=edge.right_table.lower(),
-            right_col=edge.right_col.lower(),
+            left_instance_id=left_id,
+            left_col=left_col,
+            right_instance_id=right_id,
+            right_col=right_col,
             op=edge.op,
             join_type=edge.join_type,
+            left_base_table=left_base,
+            right_base_table=right_base,
         )
 
     def to_tuple(self) -> tuple:
         """Convert to tuple for serialization."""
         return (
-            self.left_table,
+            self.left_instance_id,
             self.left_col,
-            self.right_table,
+            self.left_base_table,
+            self.right_instance_id,
             self.right_col,
+            self.right_base_table,
             self.op,
             self.join_type,
         )
+
+    def get_left_instance(self) -> TableInstance:
+        """Get left side as TableInstance."""
+        return TableInstance(self.left_instance_id, self.left_base_table)
+
+    def get_right_instance(self) -> TableInstance:
+        """Get right side as TableInstance."""
+        return TableInstance(self.right_instance_id, self.right_base_table)
 
 
 @dataclass
@@ -72,27 +121,39 @@ class JoinSetItem:
     """
     A join set representing a set of join edges from one or more QBs.
 
+    Uses TableInstance to preserve alias semantics:
+    - instances: All table instances involved (instance_id + base_table)
+    - Each instance is uniquely identified by its instance_id (alias)
+
     Used for ECSE candidate MV generation.
     """
     edges: frozenset[CanonicalEdgeKey]
     qb_ids: set[str]
-    tables: frozenset[str]  # All tables involved
-    fact_table: str | None = None
+    instances: frozenset[TableInstance]  # All table instances involved
+    fact_table: str | None = None  # Base table name of the fact table
 
     def edge_count(self) -> int:
         """Return number of edges."""
         return len(self.edges)
 
     def table_count(self) -> int:
-        """Return number of tables."""
-        return len(self.tables)
+        """Return number of table instances."""
+        return len(self.instances)
+
+    def get_base_tables(self) -> frozenset[str]:
+        """Get unique base table names (for backwards compatibility)."""
+        return frozenset(inst.base_table for inst in self.instances)
 
     def to_dict(self) -> dict:
         """Convert to dict for JSON serialization."""
         return {
             "edges": [e.to_tuple() for e in sorted(self.edges, key=lambda x: x.to_tuple())],
             "qb_ids": sorted(self.qb_ids),
-            "tables": sorted(self.tables),
+            "instances": [
+                {"instance_id": inst.instance_id, "base_table": inst.base_table}
+                for inst in sorted(self.instances)
+            ],
+            "tables": sorted(self.get_base_tables()),  # For backwards compatibility
             "fact_table": self.fact_table,
             "edge_count": self.edge_count(),
             "table_count": self.table_count(),
@@ -103,8 +164,11 @@ class QBJoinGraph:
     """
     Join graph for a single QueryBlock.
 
-    Vertices: base tables only (from schema_meta)
+    Vertices: TableInstance objects (preserving aliases)
     Edges: INNER (undirected), LEFT (directed: preserved -> nullable)
+
+    Key change: Uses instance_id (alias) instead of base_table to preserve
+    multi-alias semantics (e.g., date_dim d1 vs date_dim d2).
     """
 
     def __init__(
@@ -126,10 +190,10 @@ class QBJoinGraph:
         self.schema_meta = schema_meta
         self.qb_id = qb_id
 
-        # Graph structure
-        self.vertices: set[str] = set()  # Table names (lowercase)
-        self.undirected_edges: set[tuple[str, str]] = set()  # (table1, table2) pairs
-        self.directed_edges: set[tuple[str, str]] = set()  # (from, to) pairs
+        # Graph structure - uses instance_id as vertex identifier
+        self.vertices: set[TableInstance] = set()
+        self.undirected_edges: set[tuple[str, str]] = set()  # (instance_id1, instance_id2)
+        self.directed_edges: set[tuple[str, str]] = set()  # (from_id, to_id)
 
         # Edge details
         self.canonical_edges: set[CanonicalEdgeKey] = set()
@@ -137,27 +201,28 @@ class QBJoinGraph:
         # Non-base sources (cte_ref, derived)
         self.non_base_sources: list[str] = []
 
+        # Mapping from instance_id to TableInstance
+        self._instance_map: dict[str, TableInstance] = {}
+
         # Build the graph
         self._build_graph()
 
     def _build_graph(self) -> None:
         """Build the join graph from sources and edges."""
-        # Collect base table vertices
+        # Collect base table instances
         for source in self.sources.tables:
             if source.kind == "base":
-                table_name = source.name.lower()
                 if self.schema_meta.has_table(source.name):
-                    self.vertices.add(table_name)
+                    instance = source.to_instance()
+                    self.vertices.add(instance)
+                    self._instance_map[instance.instance_id.lower()] = instance
             else:
                 # Track non-base sources
                 self.non_base_sources.append(f"{source.alias}({source.kind})")
 
         # Process edges - only include edges between base tables
         for edge in self.join_edges:
-            left_table = edge.left_table.lower()
-            right_table = edge.right_table.lower()
-
-            # Check if both tables are base tables in schema
+            # Get source objects for both sides
             left_source = self.sources.get_source_by_alias(edge.left_table)
             right_source = self.sources.get_source_by_alias(edge.right_table)
 
@@ -168,36 +233,37 @@ class QBJoinGraph:
                 # Skip edges involving non-base sources
                 continue
 
-            left_name = left_source.name.lower()
-            right_name = right_source.name.lower()
-
             if not self.schema_meta.has_table(left_source.name):
                 continue
             if not self.schema_meta.has_table(right_source.name):
                 continue
 
-            # Add vertices
-            self.vertices.add(left_name)
-            self.vertices.add(right_name)
+            # Create TableInstance objects
+            left_instance = left_source.to_instance()
+            right_instance = right_source.to_instance()
 
-            # Add edge based on join type
+            # Add vertices
+            self.vertices.add(left_instance)
+            self.vertices.add(right_instance)
+            self._instance_map[left_instance.instance_id.lower()] = left_instance
+            self._instance_map[right_instance.instance_id.lower()] = right_instance
+
+            # Add edge based on join type (using instance_id)
+            left_id = left_instance.instance_id.lower()
+            right_id = right_instance.instance_id.lower()
+
             if edge.join_type == "LEFT":
                 # Directed edge: preserved -> nullable
-                self.directed_edges.add((left_name, right_name))
+                self.directed_edges.add((left_id, right_id))
             else:
                 # INNER (or other) - undirected
                 # Normalize pair for undirected
-                pair = tuple(sorted([left_name, right_name]))
+                pair = tuple(sorted([left_id, right_id]))
                 self.undirected_edges.add(pair)
 
-            # Create canonical edge key (use actual table names, not aliases)
-            canonical = CanonicalEdgeKey(
-                left_table=left_name,
-                left_col=edge.left_col.lower(),
-                right_table=right_name,
-                right_col=edge.right_col.lower(),
-                op=edge.op,
-                join_type=edge.join_type,
+            # Create canonical edge key (preserving instance semantics)
+            canonical = CanonicalEdgeKey.from_join_edge(
+                edge, left_instance, right_instance
             )
             self.canonical_edges.add(canonical)
 
@@ -214,14 +280,17 @@ class QBJoinGraph:
         if len(self.vertices) <= 1:
             return True
 
+        # Get all instance_ids
+        vertex_ids = {inst.instance_id.lower() for inst in self.vertices}
+
         # Try each vertex as potential root
-        for root in self.vertices:
-            if self._can_reach_all_from(root):
+        for root_id in vertex_ids:
+            if self._can_reach_all_from(root_id, vertex_ids):
                 return True
 
         return False
 
-    def _can_reach_all_from(self, root: str) -> bool:
+    def _can_reach_all_from(self, root: str, all_ids: set[str]) -> bool:
         """Check if all vertices can be reached from root."""
         visited: set[str] = set()
         stack = [root]
@@ -238,7 +307,7 @@ class QBJoinGraph:
                 if neighbor not in visited:
                     stack.append(neighbor)
 
-        return visited == self.vertices
+        return visited == all_ids
 
     def _get_reachable_neighbors(self, node: str) -> set[str]:
         """Get all vertices reachable from node in one step."""
@@ -264,11 +333,11 @@ class QBJoinGraph:
 
         Returns ECSEEligibility with reason.
         """
-        # Check 1: Must have at least 2 base tables
+        # Check 1: Must have at least 2 base table instances
         if len(self.vertices) < 2:
             return ECSEEligibility(
                 eligible=False,
-                reason=f"Insufficient base tables ({len(self.vertices)})",
+                reason=f"Insufficient base table instances ({len(self.vertices)})",
             )
 
         # Check 2: Must have at least 1 join edge
@@ -301,7 +370,7 @@ class QBJoinGraph:
         return JoinSetItem(
             edges=frozenset(self.canonical_edges),
             qb_ids={self.qb_id},
-            tables=frozenset(self.vertices),
+            instances=frozenset(self.vertices),
             fact_table=fact_table,
         )
 
@@ -330,18 +399,28 @@ class FactTableDetector:
     def __init__(self, schema_meta: "SchemaMeta"):
         self.schema_meta = schema_meta
 
-    def detect_fact_table(self, tables: frozenset[str]) -> str | None:
+    def detect_fact_table(
+        self, instances: frozenset[TableInstance] | frozenset[str]
+    ) -> str | None:
         """
-        Detect the fact table from a set of tables.
+        Detect the fact table from a set of table instances or table names.
 
         Args:
-            tables: Set of table names (lowercase)
+            instances: Set of TableInstance objects or table names (lowercase)
 
         Returns:
-            Fact table name or None
+            Fact table name (base_table) or None
         """
-        if not tables:
+        if not instances:
             return None
+
+        # Extract base table names if we have TableInstance objects
+        if instances and isinstance(next(iter(instances)), TableInstance):
+            tables = frozenset(
+                inst.base_table for inst in instances  # type: ignore
+            )
+        else:
+            tables = instances  # type: ignore
 
         # Method 1: Check schema role
         for table in tables:

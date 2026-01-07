@@ -50,10 +50,19 @@ def edge_is_invariant_fk_pk(
         InvarianceResult with is_invariant flag and reason
     """
     # Extract edge properties
-    left_table = edge.left_table.lower() if hasattr(edge, 'left_table') else edge.left_table
-    left_col = edge.left_col.lower() if hasattr(edge, 'left_col') else edge.left_col
-    right_table = edge.right_table.lower() if hasattr(edge, 'right_table') else edge.right_table
-    right_col = edge.right_col.lower() if hasattr(edge, 'right_col') else edge.right_col
+    # For CanonicalEdgeKey: use left_base_table/right_base_table (actual table names for FK lookup)
+    # For JoinEdge: use left_table/right_table (aliases, may need resolution)
+    if hasattr(edge, 'left_base_table'):
+        # CanonicalEdgeKey - use base_table for FK validation
+        left_table = edge.left_base_table.lower()
+        right_table = edge.right_base_table.lower()
+    else:
+        # JoinEdge - use table alias (may not work if alias != table name)
+        left_table = edge.left_table.lower()
+        right_table = edge.right_table.lower()
+
+    left_col = edge.left_col.lower()
+    right_col = edge.right_col.lower()
     join_type = edge.join_type
     op = edge.op
 
@@ -217,8 +226,14 @@ def invariant_for_added_table(
     # Find edges that connect added_table to intersection
     relevant_edges = []
     for edge in connecting_edges:
-        left = edge.left_table.lower()
-        right = edge.right_table.lower()
+        # For CanonicalEdgeKey: use base_table (for consistency with set membership check)
+        # For JoinEdge: use table alias
+        if hasattr(edge, 'left_base_table'):
+            left = edge.left_base_table.lower()
+            right = edge.right_base_table.lower()
+        else:
+            left = edge.left_table.lower()
+            right = edge.right_table.lower()
 
         # Check if edge connects added_table to intersection
         if left == added_table_lower and right in intersection_lower:

@@ -265,10 +265,12 @@ def _process_qb(
     canonical_edges = []
     for edge in graph.canonical_edges:
         canonical_edges.append({
-            "left_table": edge.left_table,
+            "left_instance_id": edge.left_instance_id,
             "left_col": edge.left_col,
-            "right_table": edge.right_table,
+            "left_base_table": edge.left_base_table,
+            "right_instance_id": edge.right_instance_id,
             "right_col": edge.right_col,
+            "right_base_table": edge.right_base_table,
             "op": edge.op,
             "join_type": edge.join_type,
             "tuple": edge.to_tuple(),
@@ -276,7 +278,8 @@ def _process_qb(
 
     # Detect fact table
     fact_detector = FactTableDetector(schema_meta)
-    fact_table = fact_detector.detect_fact_table(frozenset(graph.vertices))
+    base_tables = frozenset(v.base_table for v in graph.vertices)
+    fact_table = fact_detector.detect_fact_table(base_tables)
 
     # Get SQL snippet
     sql_str = qb.select_ast.sql(dialect=dialect)
@@ -425,8 +428,8 @@ def format_debug_result(result: DebugResult, verbose: bool = True) -> str:
             lines.append(f"    Canonical Edges ({len(qb.canonical_edges)}):")
             for ce in qb.canonical_edges:
                 lines.append(
-                    f"      {ce['left_table']}.{ce['left_col']} {ce['op']} "
-                    f"{ce['right_table']}.{ce['right_col']} [{ce['join_type']}]"
+                    f"      {ce['left_instance_id']}.{ce['left_col']} {ce['op']} "
+                    f"{ce['right_instance_id']}.{ce['right_col']} [{ce['join_type']}]"
                 )
 
         # Filter predicates

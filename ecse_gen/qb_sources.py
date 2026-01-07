@@ -27,6 +27,98 @@ class TableSource:
     kind: str  # base / cte_ref / derived
     ast_node: exp.Expression | None = None  # Original AST node
 
+    def to_instance(self) -> "TableInstance":
+        """Convert to TableInstance for join graph operations."""
+        return TableInstance(
+            instance_id=self.alias,
+            base_table=self.name.lower(),
+        )
+
+
+@dataclass(frozen=True)
+class TableInstance:
+    """
+    A table instance representing a unique usage of a table in a query.
+
+    This is the core abstraction for preserving alias semantics:
+    - instance_id: The alias used in the query (primary identifier)
+    - base_table: The actual table name (for schema validation)
+
+    Example:
+        In "FROM date_dim d1 JOIN date_dim d2":
+        - TableInstance("d1", "date_dim")
+        - TableInstance("d2", "date_dim")
+        These are two DIFFERENT instances, even though base_table is the same.
+    """
+    instance_id: str   # Alias used in query (primary identifier for hashing/eq)
+    base_table: str    # Actual table name (for schema validation, FK checks)
+
+    def __hash__(self):
+        # Use instance_id as the primary key
+        return hash(self.instance_id.lower())
+
+    def __eq__(self, other):
+        if not isinstance(other, TableInstance):
+            return False
+        return self.instance_id.lower() == other.instance_id.lower()
+
+    def __lt__(self, other):
+        """Enable sorting by instance_id."""
+        if not isinstance(other, TableInstance):
+            return NotImplemented
+        return self.instance_id.lower() < other.instance_id.lower()
+
+    @property
+    def needs_alias(self) -> bool:
+        """Check if AS clause is needed in SQL output."""
+        return self.instance_id.lower() != self.base_table.lower()
+
+    def to_sql_from(self, default_alias_map: dict[str, str] | None = None) -> str:
+        """
+        Generate SQL for FROM/JOIN clause.
+
+        Args:
+            default_alias_map: Optional mapping of table name -> default alias.
+                              When instance_id == base_table (no original alias),
+                              use default alias from this map if available.
+
+        Returns:
+            SQL string like "table_name AS alias" or "table_name"
+        """
+        if self.needs_alias:
+            # Original alias exists, use it
+            return f"{self.base_table} AS {self.instance_id}"
+
+        # No original alias - check for default alias
+        if default_alias_map:
+            base_lower = self.base_table.lower()
+            if base_lower in default_alias_map:
+                default_alias = default_alias_map[base_lower]
+                return f"{self.base_table} AS {default_alias}"
+
+        # No alias needed
+        return self.base_table
+
+    def get_output_alias(self, default_alias_map: dict[str, str] | None = None) -> str:
+        """
+        Get the alias to use in SQL output for column references.
+
+        Args:
+            default_alias_map: Optional mapping of table name -> default alias.
+
+        Returns:
+            The alias to use for this table instance in SQL output.
+        """
+        if self.needs_alias:
+            return self.instance_id
+
+        if default_alias_map:
+            base_lower = self.base_table.lower()
+            if base_lower in default_alias_map:
+                return default_alias_map[base_lower]
+
+        return self.instance_id
+
 
 @dataclass
 class ResolvedColumn:

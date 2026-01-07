@@ -9,6 +9,8 @@ Operations (fixed order):
 5. JS-Superset + JS-Subset: invariance-based superset/subset handling
 
 Each operation tracks lineage for debugging and analysis.
+
+Key change: Uses TableInstance to preserve alias semantics.
 """
 
 from dataclasses import dataclass, field
@@ -18,21 +20,25 @@ if TYPE_CHECKING:
     from ecse_gen.schema_meta import SchemaMeta
     from ecse_gen.join_graph import CanonicalEdgeKey, JoinSetItem
 
+from ecse_gen.qb_sources import TableInstance
+
 
 @dataclass
 class ECSEJoinSet:
     """
     ECSE JoinSet with lineage tracking.
 
+    Uses TableInstance to preserve alias semantics (e.g., date_dim d1 vs date_dim d2).
+
     Attributes:
         edges: Canonical edge keys (frozenset for hashing)
-        tables: Tables involved in the join set
+        instances: Table instances involved (instance_id + base_table)
         qb_ids: Original QB IDs that contributed to this set
         lineage: List of operations that created/modified this set
-        fact_table: Fact table for this join set
+        fact_table: Fact table (base_table name) for this join set
     """
     edges: frozenset["CanonicalEdgeKey"]
-    tables: frozenset[str]
+    instances: frozenset[TableInstance]  # Changed from tables: frozenset[str]
     qb_ids: set[str]
     lineage: list[str] = field(default_factory=list)
     fact_table: str | None = None
@@ -42,14 +48,18 @@ class ECSEJoinSet:
         return len(self.edges)
 
     def table_count(self) -> int:
-        """Return number of tables."""
-        return len(self.tables)
+        """Return number of table instances."""
+        return len(self.instances)
+
+    def get_base_tables(self) -> frozenset[str]:
+        """Get unique base table names (for backwards compatibility)."""
+        return frozenset(inst.base_table for inst in self.instances)
 
     def copy(self) -> "ECSEJoinSet":
         """Create a copy of this join set."""
         return ECSEJoinSet(
             edges=self.edges,
-            tables=self.tables,
+            instances=self.instances,
             qb_ids=set(self.qb_ids),
             lineage=list(self.lineage),
             fact_table=self.fact_table,
@@ -59,7 +69,11 @@ class ECSEJoinSet:
         """Convert to dict for JSON serialization."""
         return {
             "edges": [e.to_tuple() for e in sorted(self.edges, key=lambda x: x.to_tuple())],
-            "tables": sorted(self.tables),
+            "instances": [
+                {"instance_id": inst.instance_id, "base_table": inst.base_table}
+                for inst in sorted(self.instances)
+            ],
+            "tables": sorted(self.get_base_tables()),  # For backwards compatibility
             "qb_ids": sorted(self.qb_ids),
             "lineage": self.lineage,
             "fact_table": self.fact_table,
@@ -72,7 +86,7 @@ def from_join_set_item(item: "JoinSetItem") -> ECSEJoinSet:
     """Create ECSEJoinSet from JoinSetItem."""
     return ECSEJoinSet(
         edges=item.edges,
-        tables=item.tables,
+        instances=item.instances,
         qb_ids=set(item.qb_ids),
         lineage=[f"original({','.join(sorted(item.qb_ids))})"],
         fact_table=item.fact_table,
@@ -119,36 +133,44 @@ def js_equivalence(joinsets: list[ECSEJoinSet]) -> list[ECSEJoinSet]:
 # JS-Intersection: Pairwise intersection (no closure)
 # =============================================================================
 
-def _compute_tables_from_edges(edges: frozenset["CanonicalEdgeKey"]) -> frozenset[str]:
-    """Extract all tables from a set of edges."""
-    tables: set[str] = set()
+def _compute_instances_from_edges(
+    edges: frozenset["CanonicalEdgeKey"]
+) -> frozenset[TableInstance]:
+    """Extract all table instances from a set of edges."""
+    instances: set[TableInstance] = set()
     for edge in edges:
-        tables.add(edge.left_table)
-        tables.add(edge.right_table)
-    return frozenset(tables)
+        instances.add(edge.get_left_instance())
+        instances.add(edge.get_right_instance())
+    return frozenset(instances)
 
 
 def _is_connected_edges(edges: frozenset["CanonicalEdgeKey"]) -> bool:
-    """Check if edges form a connected graph."""
+    """Check if edges form a connected graph (using instance_id)."""
     if len(edges) == 0:
         return False
     if len(edges) == 1:
         return True
 
-    # Build adjacency list
+    # Build adjacency using instance_id
+    instances = _compute_instances_from_edges(edges)
+    instance_ids = {inst.instance_id.lower() for inst in instances}
+
+    # Build adjacency list using instance_id
     adj: dict[str, set[str]] = {}
     for edge in edges:
-        if edge.left_table not in adj:
-            adj[edge.left_table] = set()
-        if edge.right_table not in adj:
-            adj[edge.right_table] = set()
-        adj[edge.left_table].add(edge.right_table)
-        adj[edge.right_table].add(edge.left_table)
+        left_id = edge.left_instance_id.lower()
+        right_id = edge.right_instance_id.lower()
+        if left_id not in adj:
+            adj[left_id] = set()
+        if right_id not in adj:
+            adj[right_id] = set()
+        adj[left_id].add(right_id)
+        adj[right_id].add(left_id)
 
-    # BFS from first table
-    tables = list(adj.keys())
+    # BFS from first instance
+    ids = list(adj.keys())
     visited: set[str] = set()
-    stack = [tables[0]]
+    stack = [ids[0]]
 
     while stack:
         current = stack.pop()
@@ -159,7 +181,7 @@ def _is_connected_edges(edges: frozenset["CanonicalEdgeKey"]) -> bool:
             if neighbor not in visited:
                 stack.append(neighbor)
 
-    return len(visited) == len(tables)
+    return len(visited) == len(ids)
 
 
 def js_intersection(
@@ -209,12 +231,12 @@ def js_intersection(
             seen_sigs.add(intersection_edges)
 
             # Create new joinset
-            tables = _compute_tables_from_edges(intersection_edges)
+            instances = _compute_instances_from_edges(intersection_edges)
             combined_qbs = js1.qb_ids | js2.qb_ids
 
             new_js = ECSEJoinSet(
                 edges=intersection_edges,
-                tables=tables,
+                instances=instances,
                 qb_ids=combined_qbs,
                 lineage=[f"intersect({i},{j})"],
                 fact_table=js1.fact_table,
@@ -228,14 +250,16 @@ def js_intersection(
 # JS-Union: Invariance-based union for overlapping sets
 # =============================================================================
 
-def _get_edges_for_table(
+def _get_edges_for_instance(
     edges: frozenset["CanonicalEdgeKey"],
-    table: str,
+    instance_id: str,
 ) -> list["CanonicalEdgeKey"]:
-    """Get all edges involving a specific table."""
+    """Get all edges involving a specific instance (by instance_id)."""
     result = []
+    instance_id_lower = instance_id.lower()
     for edge in edges:
-        if edge.left_table == table or edge.right_table == table:
+        if (edge.left_instance_id.lower() == instance_id_lower or
+            edge.right_instance_id.lower() == instance_id_lower):
             result.append(edge)
     return result
 
@@ -251,17 +275,19 @@ def _check_union_invariance(
     For JS-Union invariance:
     - Find edges in js1 not in js2 (and vice versa)
     - Each "new" edge must be an invariant FK-PK join
-    - The tables must overlap (have at least one common table)
+    - The joinsets must overlap (have at least one common base table)
+
+    Uses base_table for overlap check since invariance is schema-based.
 
     Returns:
         Tuple of (is_invariant, reason)
     """
     from ecse_gen.invariance import edge_is_invariant_fk_pk
 
-    # Must have overlap
-    common_tables = js1.tables & js2.tables
-    if not common_tables:
-        return False, "No overlapping tables"
+    # Must have overlap (by base_table)
+    common_base_tables = js1.get_base_tables() & js2.get_base_tables()
+    if not common_base_tables:
+        return False, "No overlapping base tables"
 
     # Must not be subsets of each other
     if js1.edges <= js2.edges or js2.edges <= js1.edges:
@@ -272,14 +298,14 @@ def _check_union_invariance(
     for edge in unique_to_js1:
         result = edge_is_invariant_fk_pk(edge, schema_meta)
         if not result.is_invariant:
-            return False, f"Edge not invariant: {edge.left_table}.{edge.left_col}"
+            return False, f"Edge not invariant: {edge.left_instance_id}.{edge.left_col}"
 
     # Check edges unique to js2
     unique_to_js2 = js2.edges - js1.edges
     for edge in unique_to_js2:
         result = edge_is_invariant_fk_pk(edge, schema_meta)
         if not result.is_invariant:
-            return False, f"Edge not invariant: {edge.left_table}.{edge.left_col}"
+            return False, f"Edge not invariant: {edge.left_instance_id}.{edge.left_col}"
 
     return True, "All unique edges are invariant FK-PK"
 
@@ -333,12 +359,12 @@ def js_union(
             if not _is_connected_edges(union_edges):
                 continue
 
-            union_tables = _compute_tables_from_edges(union_edges)
+            union_instances = _compute_instances_from_edges(union_edges)
             combined_qbs = js1.qb_ids | js2.qb_ids
 
             new_js = ECSEJoinSet(
                 edges=union_edges,
-                tables=union_tables,
+                instances=union_instances,
                 qb_ids=combined_qbs,
                 lineage=[f"union({i},{j})"],
                 fact_table=js1.fact_table,
@@ -376,7 +402,7 @@ def _check_superset_invariance(
     for edge in added_edges:
         result = edge_is_invariant_fk_pk(edge, schema_meta)
         if not result.is_invariant:
-            return False, f"Added edge not invariant: {edge.left_table}.{edge.left_col}"
+            return False, f"Added edge not invariant: {edge.left_instance_id}.{edge.left_col}"
 
     return True, "All added edges are invariant FK-PK"
 

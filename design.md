@@ -38,7 +38,7 @@
 
 ### 1.1 输入
 1) `workload_dir`：`tpcds-spark/` 目录，多个独立 `.sql` 文件（每文件 1 条 query）
-2) `schema_meta.json`：TPC-DS schema 元数据（包含你决定使用的 **recommended FK 映射**）
+2) `schema_meta.json`：完整 TPC-DS schema 元数据（25 tables，包含 **recommended FK 映射** 和 NOT NULL 约束）
 
 > 注意：同一个 `.sql` 文件原则上只有一条 statement；但实现上必须使用 `sqlglot.parse()` 以防多 statement 文件造成漏读。
 
@@ -114,14 +114,26 @@ TableMeta 至少：
 - `used_columns: Set[QualifiedColumn]`（用于 MV 投影）
 - `warnings: List[str]`
 
-### 3.3 TableSource
+### 3.3 TableSource / TableInstance
 - `name: str`（base 表名 / cte 名 / synthetic derived 名）
 - `alias: Optional[str]`
 - `kind: str`（base / cte_ref / derived）
 
-### 3.4 JoinEdge（重点：必须区分 INNER vs LEFT，且等价性包含 join_type）
-建议字段：
-- `left_table: str`
+**TableInstance（用于 JoinGraph 和 ECSE）**：
+```python
+@dataclass(frozen=True)
+class TableInstance:
+    instance_id: str   # 别名，用于 SQL 输出和图顶点标识
+    base_table: str    # 基表名，用于 schema 验证和 FK 检查
+```
+
+> 注意：`TableInstance` 解决了同一表多实例别名问题（如 `date_dim d1, date_dim d2, date_dim d3`）。
+> 使用 `instance_id` 区分不同实例，使用 `base_table` 进行 schema 验证。
+
+### 3.4 JoinEdge / CanonicalEdgeKey（重点：必须区分 INNER vs LEFT，且等价性包含 join_type）
+
+**JoinEdge**（原始 JOIN 边，用于 QB 级别）：
+- `left_table: str`（别名或表名）
 - `left_col: str`
 - `op: str`（通常 '='）
 - `right_table: str`
@@ -131,17 +143,45 @@ TableMeta 至少：
 - `direction: str`
   - INNER：`UNDIRECTED`
   - LEFT：`LEFT_TO_RIGHT`（preserved→nullable）
-- `canonical_key(): Tuple[...]`  
-  - INNER：允许按 (table,col) 排序归一化  
-  - LEFT：必须保留方向（不可交换左右）
 
-> JoinEdge 去重/哈希应基于 canonical_key。
+**CanonicalEdgeKey**（规范化 JOIN 边，用于 ECSE）：
+```python
+@dataclass(frozen=True)
+class CanonicalEdgeKey:
+    left_instance_id: str    # 左侧表实例 ID（别名）
+    left_col: str
+    right_instance_id: str   # 右侧表实例 ID（别名）
+    right_col: str
+    op: str
+    join_type: str
+    left_base_table: str     # 左侧基表名（用于 schema 验证）
+    right_base_table: str    # 右侧基表名（用于 schema 验证）
+```
 
-### 3.5 JoinSetItem
-- `edges: FrozenSet[JoinEdgeKey]`（JoinEdge canonical key 的 frozenset）
-- `qbset: Set[str]`
+> - INNER edge：按 (instance_id, col) 字典序归一化左右端
+> - LEFT edge：保留方向（preserved→nullable），不可交换
+> - 等价性/去重必须包含 join_type（INNER != LEFT）
+> - `base_table` 字段用于 FK/PK invariance 检查
+
+### 3.5 JoinSetItem / ECSEJoinSet
+**JoinSetItem**（JoinGraph 阶段使用）：
+- `edges: FrozenSet[CanonicalEdgeKey]`
+- `instances: FrozenSet[TableInstance]`
+- `qb_ids: Set[str]`
 - `fact_table: Optional[str]`
-- `debug_lineage: Optional[...]`
+
+**ECSEJoinSet**（ECSE 算法阶段使用）：
+```python
+@dataclass
+class ECSEJoinSet:
+    edges: frozenset[CanonicalEdgeKey]
+    instances: frozenset[TableInstance]  # 替代原来的 tables: frozenset[str]
+    qb_ids: set[str]
+    lineage: list[str]
+    fact_table: str | None = None
+```
+
+> 注意：使用 `instances` 而非 `tables` 以支持同表多实例场景。
 
 ---
 
@@ -275,11 +315,16 @@ join graph 认为 connected 当且仅当：
 - edge.join_type == INNER
 - edge.op == '='
 - schema_meta 中存在 FK：child_table.child_col → parent_table.parent_col
+  - **使用 `edge.left_base_table` 和 `edge.right_base_table` 进行 schema 查询**
 - child_col NOT NULL
+
+> 注意：Invariance 检查使用 `base_table` 而非 `instance_id`，因为 FK 约束定义在基表级别。
+> `instance_id` 用于区分同表的不同实例，但 FK 验证需要使用 `base_table`。
 
 ### 9.2 invariant_for_added_table(intersection_joinset, added_table)
 - added_table 必须通过至少一条 edge 连接到 intersection 中某表
 - 且该 edge 满足 edge_is_invariant_fk_pk（允许方向识别：added_table 可为 parent 或 child，但必须能匹配 FK 索引）
+- **使用 `edge.left_base_table` / `edge.right_base_table` 进行表匹配**
 
 ---
 
@@ -350,6 +395,11 @@ join graph 认为 connected 当且仅当：
   - preserved side 必须先出现，再引入 nullable side
   - 若无法拓扑化/存在冲突：跳过该 MV（写 warning），不输出可能错语义的 view
 
+**TableInstance 别名处理**：
+- 使用 `TableInstance.instance_id` 作为 SQL 中的表别名
+- 当 `instance_id != base_table` 时，输出 `JOIN base_table AS instance_id`
+- 例如：`date_dim d1` 输出为 `JOIN date_dim AS d1`
+
 ### 12.3 WHERE 规则
 - MV 的 WHERE **只包含 join predicates（col op col）**
 - 不包含常量过滤（filter_predicates 不写入 view），避免降低复用与造成语义偏移
@@ -375,6 +425,116 @@ join graph 认为 connected 当且仅当：
     - 多 QB 合并时检查别名一致性：同一聚合在不同 QB 中使用不同别名时，清除别名
     - 无别名时自动生成：`{func}_{table}__{column}`（如 `sum_store_sales__ss_net_profit`）
   - 此策略确保 MV 列名唯一且语义中立，便于查询重写
+
+### 12.5 聚合函数支持
+
+MV Emitter 支持提取以下聚合函数（通过 sqlglot 表达式类型识别）：
+
+| 函数类型 | sqlglot 表达式 | TPC-DS 示例 |
+|---------|---------------|-------------|
+| 计数 | `exp.Count` | `COUNT(ss_quantity)`, `COUNT(*)` |
+| 求和 | `exp.Sum` | `SUM(ss_ext_sales_price)` |
+| 平均 | `exp.Avg` | `AVG(ss_quantity)` |
+| 最值 | `exp.Min`, `exp.Max` | `MIN(cd_dep_count)`, `MAX(cd_dep_count)` |
+| 标准差 | `exp.Stddev`, `exp.StddevPop`, `exp.StddevSamp` | `STDDEV_SAMP(ss_quantity)` |
+| 方差 | `exp.Variance`, `exp.VariancePop` | `VARIANCE(inv_quantity)` |
+
+**重要说明**：
+- 仅提取 QB 的 SELECT 子句中的聚合函数
+- 跳过窗口函数内的聚合（如 `AVG(SUM(...)) OVER (...)`）
+- 跳过嵌套子查询内的聚合
+- 聚合别名提取策略见 12.4 节
+
+### 12.6 边实例 ID 规范化（P0-2/P0-3）
+
+当不同 QB 对同一基表使用不同别名时（如 `item i` vs `item`），需要规范化边的 instance_id：
+
+```python
+def _normalize_edge_instance_ids(edges, instances):
+    """
+    规范化边的 instance_id 以匹配 joinset 的 instances。
+
+    处理场景：
+    1. QB1: item AS i → 边使用 i.i_item_sk
+    2. QB2: item → 边使用 item.i_item_sk
+
+    当 joinset 包含 TableInstance(instance_id='i', base_table='item') 时：
+    - 边 item.i_item_sk 会被重映射为 i.i_item_sk
+    - 若 base_table 有多个实例（如 d1, d2, d3），无法安全重映射，跳过该边
+    """
+```
+
+**关键规则**：
+- 单实例基表：可安全重映射不同别名
+- 多实例基表（如 `date_dim d1, d2, d3`）：不可重映射，必须精确匹配
+- 无法匹配的边会被过滤并记录 warning
+
+### 12.7 列引用实例重映射（P0-4）
+
+**问题场景**：JoinSet 合并后，不同 QB 的列引用可能使用不同的 instance_id：
+- QB1: `SELECT i.i_brand FROM item i` → ColumnRef(instance_id='i', column='i_brand')
+- QB2: `SELECT item.i_brand FROM item` → ColumnRef(instance_id='item', column='i_brand')
+
+当 JoinSet 合并后只保留 `TableInstance('i', 'item')` 时，QB2 的列引用需要重映射。
+
+```python
+def remap_column_instance_id(col, valid_instance_ids, base_to_instances):
+    """
+    重映射 ColumnRef 的 instance_id 以匹配 joinset 实例。
+
+    规则：
+    1. instance_id 已有效：直接返回
+    2. instance_id 无效但 base_table 有单一实例：安全重映射
+    3. base_table 有多个实例或无实例：返回 None（降级处理）
+    """
+
+def remap_columns_to_joinset(columns, instances):
+    """批量重映射所有 ColumnRef。"""
+
+def remap_aggregates_to_joinset(aggregates, instances):
+    """重映射聚合表达式中的列引用。"""
+```
+
+**安全保证**：
+- 单实例基表：可安全重映射（确定性）
+- 多实例基表：不可重映射，降级处理（避免猜测）
+- 重映射失败的 GROUP BY 或聚合列导致整个 MV 降级（生成 SKIPPED 注释）
+
+### 12.8 混合 JOIN 计划的连接感知排序（P0-5）
+
+**问题场景**：当 JoinSet 包含 LEFT JOIN 时，`_build_mixed_join_plan` 使用拓扑排序确保 preserved side 先于 nullable side。但原实现有 bug：
+
+```python
+# Bug: joined_ids.add(inst_id) 无条件执行
+for inst_id in ordered_ids[1:]:
+    connecting_edges = find_edges_to_joined(inst_id)
+    if connecting_edges:
+        join_specs.append(...)
+    joined_ids.add(inst_id)  # ❌ 即使没有连接边也添加
+```
+
+这导致后续实例的 ON 子句引用了未被 JOIN 的表。
+
+**修复方案**：使用贪婪连接感知排序：
+
+```python
+def _build_mixed_join_plan(instances, edges, warnings):
+    """
+    P0-5 增强：
+    - 使用贪婪连接感知排序（类似 INNER-only 计划）
+    - 只添加有连接边的实例到 joined_ids
+    - 同时尊重 LEFT JOIN 拓扑约束
+    - 防止 ON 子句中出现孤立的表引用
+    """
+    # 1. 找到满足拓扑约束的起始实例
+    # 2. 贪婪添加：必须有连接边 AND 满足拓扑约束
+    # 3. 无法连接的实例导致 MV 降级（不生成无效 SQL）
+```
+
+**关键规则**：
+- 实例必须有连接边到已加入的实例才能添加
+- 同时满足 LEFT JOIN 的拓扑约束（preserved → nullable）
+- 断开连接的图导致 MV 降级而非生成无效 SQL
 
 ---
 

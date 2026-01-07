@@ -10,10 +10,11 @@ ECSE (Extended Candidate Selection Engine) 是一个用于从 SQL 工作负载�
 
 - **QueryBlock (QB) 提取**：从复杂 SQL 中提取查询块，支持 CTE、UNION、子查询
 - **Join 图构建**：自动识别表连接关系，区分 INNER/LEFT JOIN，支持显式和隐式 JOIN
+- **TableInstance 语义保留**：支持同一表的多实例别名（如 `date_dim d1, date_dim d2, date_dim d3`）
 - **ECSE 算法**：实现论文中的五种 JoinSet 操作（Equivalence、Intersection、Union、Superset、Subset）
 - **Invariance 分析**：基于外键约束和 NOT NULL 约束进行语义不变性判定
 - **启发式剪枝**：通过多种规则减少候选数量，提高质量
-- **MV 生成**：输出语义正确的 CREATE VIEW 语句，保证 JOIN 顺序正确性
+- **MV 生成**：输出语义正确的 CREATE VIEW 语句，保证 JOIN 顺序正确性与别名语义
 
 ## 系统架构
 
@@ -26,7 +27,7 @@ flowchart TD
     E --> F[MV Emitter]
     F --> G[Outputs]
 
-    Schema[Schema Metadata<br/>tpcds_full_schema.json] -.-> C
+    Schema[Schema Metadata<br/>schema_meta.json] -.-> C
     Schema -.-> D
     Schema -.-> E
 
@@ -93,7 +94,7 @@ python -m ecse_gen.cli --help
 # 运行示例
 python -m ecse_gen.cli \
   --workload_dir tpcds-spark/ \
-  --schema_meta tpcds_full_schema.json \
+  --schema_meta schema_meta.json \
   --out_dir output/ \
   --dialect spark \
   --alpha 2 \
@@ -108,12 +109,12 @@ python -m ecse_gen.cli \
 # 查看 SQL 的 AST 结构
 python -m ecse_gen.debug_ast \
   --sql_file tpcds-spark/q01.sql \
-  --schema_meta tpcds_full_schema.json
+  --schema_meta schema_meta.json
 
 # 或直接传入 SQL 语句
 python -m ecse_gen.debug_ast \
   --sql "SELECT * FROM store_sales JOIN item ON ss_item_sk = i_item_sk" \
-  --schema_meta tpcds_full_schema.json
+  --schema_meta schema_meta.json
 ```
 
 ## 输出说明
@@ -178,10 +179,10 @@ GROUP BY item.i_brand, item.i_brand_id
 
 ```python
 CONFIG = {
-    "schema_meta": "tpcds_full_schema.json",  # Schema 元数据
-    "workload_dir": "tpcds-spark/",           # SQL workload 目录
-    "out_dir": "output/",                     # 输出目录
-    "dialect": "spark",                       # SQL 方言
+    "schema_meta": "schema_meta.json",    # Schema 元数据 (完整 TPC-DS 25 tables)
+    "workload_dir": "tpcds-spark/",       # SQL workload 目录
+    "out_dir": "output/",                 # 输出目录
+    "dialect": "spark",                   # SQL 方言
     "alpha": 2,          # 最小表数量阈值（剪枝）
     "beta": 2,           # 最小 QB 数量阈值（剪枝）
     "enable_union": True,      # 启用 JS-Union 操作
@@ -205,6 +206,8 @@ pytest -v tests/
 
 ### 测试覆盖
 
+当前共有 **270 个测试用例**全部通过。
+
 - ✅ Schema 元数据加载
 - ✅ Workload 读取与预处理
 - ✅ QueryBlock 提取（CTE、UNION、子查询）
@@ -214,6 +217,8 @@ pytest -v tests/
 - ✅ Invariance 判定
 - ✅ 启发式剪枝
 - ✅ MV SQL 生成
+- ✅ 列引用实例重映射 (P0-4)
+- ✅ 混合 JOIN 连接感知排序 (P0-5)
 
 ## 项目结构
 
@@ -237,8 +242,7 @@ ecse_test/
 ├── tpcds-spark/            # TPC-DS Spark SQL 查询
 ├── output/                 # 输出目录
 ├── ecse_main.py            # 主入口
-├── tpcds_full_schema.json  # 完整 TPC-DS schema
-├── schema_meta.json        # 测试用 schema
+├── schema_meta.json        # 完整 TPC-DS schema (25 tables, with FK constraints)
 ├── design.md               # 详细设计文档
 ├── CLAUDE.md               # 项目规则
 └── README.md               # 本文件
@@ -329,12 +333,129 @@ flowchart TD
 - **规则 C**: QB 集合大小 < beta → 删除（默认 beta=2）
 - **规则 D**: Maximal 检查 - 删除被其他 JoinSet 完全包含的候选
 
+## 聚合函数支持
+
+MV Emitter 支持提取以下聚合函数：
+
+| 函数类型 | sqlglot 表达式 | 示例 |
+|---------|---------------|------|
+| 计数 | `COUNT`, `COUNT(*)` | `COUNT(ss.ss_quantity)` |
+| 求和 | `SUM` | `SUM(ss.ss_ext_sales_price)` |
+| 平均 | `AVG` | `AVG(ss.ss_quantity)` |
+| 最值 | `MIN`, `MAX` | `MIN(cd.cd_dep_count)` |
+| 标准差 | `STDDEV`, `STDDEV_POP`, `STDDEV_SAMP` | `STDDEV_SAMP(ss.ss_quantity)` |
+| 方差 | `VARIANCE`, `VARIANCE_POP` | `VARIANCE(inv.inv_quantity)` |
+
+### 聚合别名策略
+
+- **直接别名继承**：当聚合是 `Alias` 的直接子节点时继承原别名
+- **复杂表达式处理**：`sum(a)/sum(b) AS ratio` 中的聚合不继承外层别名
+- **多 QB 合并冲突**：同一聚合在不同 QB 使用不同别名时，自动生成中立别名
+- **自动生成格式**：`{func}_{table}__{column}`（如 `sum_ss__ss_net_profit`）
+
 ## 已知限制
 
 - 当前仅支持 `join_only` 模式，不包含 GROUP BY/聚合推理
 - 不支持 OR 条件、复杂表达式中的 JOIN
 - CTE/Derived Table 的 JOIN 默认不参与 ECSE（可配置）
 - 未实现成本/收益评估（论文后续模块）
+
+## 关键设计：TableInstance 语义保留
+
+### 问题背景
+
+在复杂 SQL 查询中，同一个表可能以不同别名出现多次。例如 TPC-DS 中常见的模式：
+
+```sql
+SELECT ...
+FROM store_sales
+JOIN date_dim d1 ON ss_sold_date_sk = d1.d_date_sk
+JOIN date_dim d2 ON ss_returned_date_sk = d2.d_date_sk
+JOIN date_dim d3 ON ss_ship_date_sk = d3.d_date_sk
+```
+
+如果简单地使用表名作为标识符，会丢失别名语义，导致无法正确区分 `d1`, `d2`, `d3`。
+
+### 解决方案：TableInstance
+
+引入 `TableInstance` 数据结构，同时保存：
+- `instance_id`：表实例的别名（如 `d1`, `d2`, `d3`）
+- `base_table`：基础表名（如 `date_dim`）
+
+```python
+@dataclass(frozen=True)
+class TableInstance:
+    instance_id: str   # 别名，用于 SQL 输出和图顶点标识
+    base_table: str    # 基表名，用于 schema 验证和 FK 检查
+```
+
+### 对核心模块的影响
+
+1. **CanonicalEdgeKey**：使用 `left_instance_id` + `left_base_table` 代替单一的 `left_table`
+2. **ECSEJoinSet**：使用 `instances: frozenset[TableInstance]` 代替 `tables: frozenset[str]`
+3. **JoinGraph**：顶点使用 `TableInstance`，连通性检查使用 `instance_id`
+4. **MV 生成**：正确输出带别名的 JOIN 语句，如 `JOIN date_dim AS d1`
+
+### 生成的 MV 示例
+
+```sql
+CREATE VIEW mv_001 AS
+SELECT ...
+FROM catalog_sales
+INNER JOIN date_dim AS d3
+    ON d3.d_date_sk = catalog_sales.cs_sold_date_sk
+INNER JOIN store_returns
+    ON store_returns.sr_customer_sk = catalog_sales.cs_bill_customer_sk
+INNER JOIN date_dim AS d2
+    ON d2.d_date_sk = store_returns.sr_returned_date_sk
+INNER JOIN store_sales
+    ON store_sales.ss_ticket_number = store_returns.sr_ticket_number
+INNER JOIN date_dim AS d1
+    ON d1.d_date_sk = store_sales.ss_sold_date_sk
+...
+```
+
+## 实例映射与 JOIN 排序增强
+
+### 列引用实例重映射 (P0-4)
+
+当 JoinSet 合并后，不同 QB 可能使用不同的 instance_id 引用同一基表：
+
+```
+QB1: SELECT i.i_brand FROM item i      → ColumnRef(instance_id='i', column='i_brand')
+QB2: SELECT item.i_brand FROM item     → ColumnRef(instance_id='item', column='i_brand')
+```
+
+`remap_columns_to_joinset()` 函数自动重映射列引用：
+
+- **单实例基表**：可安全重映射（如 `item` → `i`）
+- **多实例基表**：不可重映射，触发降级（避免猜测）
+- **无法匹配**：列被过滤，记录 warning
+
+### 混合 JOIN 连接感知排序 (P0-5)
+
+对于包含 LEFT JOIN 的 JoinSet，`_build_mixed_join_plan()` 使用贪婪连接感知排序：
+
+1. **拓扑约束**：LEFT JOIN 的 preserved side 必须先于 nullable side
+2. **连接约束**：实例必须有连接边到已加入的实例才能添加
+3. **降级策略**：断开的图或冲突约束导致 MV 降级，而非生成无效 SQL
+
+```mermaid
+flowchart TD
+    Start[开始] --> FindStart[找到满足拓扑约束的起始实例]
+    FindStart --> AddFirst[添加起始实例到 joined_ids]
+    AddFirst --> Loop{还有剩余实例?}
+    Loop -->|是| FindNext[找下一个实例:<br/>1. 满足拓扑约束<br/>2. 有连接边到 joined_ids]
+    FindNext --> Found{找到?}
+    Found -->|是| Add[添加实例<br/>记录 JOIN spec]
+    Add --> Loop
+    Found -->|否| Degrade[降级: 返回 is_valid=False]
+    Loop -->|否| Success[成功: 返回有序实例列表]
+
+    style Start fill:#e1f5ff
+    style Success fill:#90ee90
+    style Degrade fill:#ffcccb
+```
 
 ## 未来扩展
 

@@ -149,12 +149,14 @@ class TestEdgeIsInvariantFkPk:
     def test_canonical_edge_key_works(self, schema_meta):
         """Test that CanonicalEdgeKey also works."""
         key = CanonicalEdgeKey(
-            left_table="store_sales",
+            left_instance_id="store_sales",
             left_col="ss_item_sk",
-            right_table="item",
+            right_instance_id="item",
             right_col="i_item_sk",
             op="=",
             join_type="INNER",
+            left_base_table="store_sales",
+            right_base_table="item",
         )
         result = edge_is_invariant_fk_pk(key, schema_meta)
 

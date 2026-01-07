@@ -26,9 +26,9 @@ import sqlglot
 PROJECT_ROOT = Path(__file__).parent
 
 CONFIG = {
-    "schema_meta": PROJECT_ROOT / "tpcds_full_schema.json",  # Full TPC-DS schema with FK
-    "workload_dir": PROJECT_ROOT / "tpcds-spark",            # TPC-DS queries
-    "out_dir": PROJECT_ROOT / "output",                      # Output directory
+    "schema_meta": PROJECT_ROOT / "schema_meta.json",  # Full TPC-DS schema (25 tables, with FK constraints)
+    "workload_dir": PROJECT_ROOT / "tpcds-spark",      # TPC-DS queries
+    "out_dir": PROJECT_ROOT / "output",                # Output directory
     "dialect": "spark",
     "alpha": 2,
     "beta": 2,
