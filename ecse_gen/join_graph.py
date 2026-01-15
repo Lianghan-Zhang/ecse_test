@@ -131,6 +131,8 @@ class JoinSetItem:
     qb_ids: set[str]
     instances: frozenset[TableInstance]  # All table instances involved
     fact_table: str | None = None  # Base table name of the fact table
+    grouping_signature: str = ""  # ROLLUP/CUBE signature for equivalence
+    has_rollup_semantics: bool = False  # True if ROLLUP/CUBE/GROUPING_SETS
 
     def edge_count(self) -> int:
         """Return number of edges."""
@@ -157,6 +159,8 @@ class JoinSetItem:
             "fact_table": self.fact_table,
             "edge_count": self.edge_count(),
             "table_count": self.table_count(),
+            "grouping_signature": self.grouping_signature,
+            "has_rollup_semantics": self.has_rollup_semantics,
         }
 
 
@@ -471,12 +475,23 @@ class JoinSetCollection:
         # All join sets
         self.all_items: list[JoinSetItem] = []
 
-        # Edge signature to join set mapping (for merging)
-        self._edge_sig_map: dict[frozenset[CanonicalEdgeKey], JoinSetItem] = {}
+        # Signature to join set mapping (for merging)
+        # Key = (edge_sig, grouping_signature) to prevent merging different ROLLUP types
+        self._sig_map: dict[tuple[frozenset[CanonicalEdgeKey], str], JoinSetItem] = {}
 
-    def add_from_qb_graph(self, graph: QBJoinGraph) -> JoinSetItem | None:
+    def add_from_qb_graph(
+        self,
+        graph: QBJoinGraph,
+        grouping_signature: str = "",
+        has_rollup_semantics: bool = False,
+    ) -> JoinSetItem | None:
         """
         Add a QBJoinGraph to the collection.
+
+        Args:
+            graph: QBJoinGraph to add
+            grouping_signature: Grouping signature for ROLLUP/CUBE separation
+            has_rollup_semantics: Whether QB has ROLLUP/CUBE/GROUPING_SETS semantics
 
         Returns the JoinSetItem if eligible, None otherwise.
         """
@@ -487,18 +502,21 @@ class JoinSetCollection:
         # Detect fact table
         fact_table = self.fact_detector.detect_fact_table(graph.vertices)
 
-        # Check if we already have this exact edge set
+        # Check if we already have this exact (edge set, grouping_signature) combination
         edge_sig = frozenset(graph.canonical_edges)
+        sig_key = (edge_sig, grouping_signature)
 
-        if edge_sig in self._edge_sig_map:
+        if sig_key in self._sig_map:
             # Merge: add qb_id to existing item
-            existing = self._edge_sig_map[edge_sig]
+            existing = self._sig_map[sig_key]
             existing.qb_ids.add(graph.qb_id)
             return existing
         else:
-            # Create new item
+            # Create new item with grouping info
             item = graph.get_join_set_item(fact_table=fact_table)
-            self._edge_sig_map[edge_sig] = item
+            item.grouping_signature = grouping_signature
+            item.has_rollup_semantics = has_rollup_semantics
+            self._sig_map[sig_key] = item
             self.all_items.append(item)
 
             # Group by fact table

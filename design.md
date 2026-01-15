@@ -536,6 +536,75 @@ def _build_mixed_join_plan(instances, edges, warnings):
 - 同时满足 LEFT JOIN 的拓扑约束（preserved → nullable）
 - 断开连接的图导致 MV 降级而非生成无效 SQL
 
+### 12.9 ROLLUP/CUBE/GROUPING SETS 支持
+
+**支持的语法**：
+- `GROUP BY ROLLUP(a, b)` - 渐进聚合
+- `GROUP BY CUBE(a, b)` - 完全交叉聚合
+- `GROUP BY GROUPING SETS((a, b), (a), ())` - 自定义分组集
+- `GROUP BY a, ROLLUP(b, c)` - 混合模式
+
+**实现要点**：
+
+1. **解析层** (`extract_groupby_info_from_qb`)：
+   - 检测 `group_clause.args.get("rollup")` / `cube` / `grouping_sets`
+   - 提取各组件列并生成 `GroupByInfo`
+   - 计算 `grouping_signature` 用于 ECSE 等价判断
+
+2. **ECSE 合并层** (`ECSEJoinSet`)：
+   - `grouping_signature` 纳入 hash/eq
+   - 不同 ROLLUP/CUBE 模式的 JoinSet 不会被合并
+   - 保证语义正确性
+
+3. **策略决策** (`determine_rollup_strategy`)：
+   - HOLISTIC 聚合（MEDIAN/PERCENTILE）→ SKIP
+   - COUNT(DISTINCT) → SKIP
+   - 其他 → PRESERVE（保留原语法）
+
+4. **SQL 生成**：
+   - 根据 `grouping_type` 生成正确的 GROUP BY 子句
+   - sqlglot 自动规范化格式
+
+**数据结构**：
+
+```python
+class GroupingType(Enum):
+    SIMPLE = "simple"           # GROUP BY a, b
+    ROLLUP = "rollup"           # GROUP BY ROLLUP(a, b)
+    CUBE = "cube"               # GROUP BY CUBE(a, b)
+    GROUPING_SETS = "grouping_sets"
+    MIXED = "mixed"             # GROUP BY a, ROLLUP(b)
+
+class AggregateCategory(Enum):
+    DISTRIBUTIVE = "distributive"  # SUM, COUNT, MIN, MAX
+    ALGEBRAIC = "algebraic"        # AVG, STDDEV
+    HOLISTIC = "holistic"          # MEDIAN, PERCENTILE
+
+class RollupStrategy(Enum):
+    PRESERVE = "preserve"       # 保留原语法（默认）
+    DETAIL_ONLY = "detail_only" # 只输出最细粒度
+    SKIP = "skip"               # 跳过
+```
+
+**输出示例**：
+
+```sql
+-- mv_008
+-- fact: store_sales
+-- Grouping: rollup
+-- Grouping Signature: ROLLUP::item.i_category,item.i_brand
+-- Strategy: preserve (All aggregates support rollup)
+CREATE VIEW mv_008 AS
+SELECT
+  i.i_category,
+  i.i_brand,
+  SUM(ss.ss_ext_sales_price) AS sum_ss_ext_sales_price
+FROM store_sales AS ss
+JOIN item AS i ON ss.ss_item_sk = i.i_item_sk
+GROUP BY ROLLUP (i.i_category, i.i_brand)
+;
+```
+
 ---
 
 ## 13. 输出文件格式建议

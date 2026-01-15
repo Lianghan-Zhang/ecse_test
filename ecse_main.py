@@ -14,7 +14,7 @@ from ecse_gen.qb_sources import extract_sources_from_select, get_cte_names_from_
 from ecse_gen.join_extractor import extract_join_edges
 from ecse_gen.join_graph import build_qb_join_graph, JoinSetCollection
 from ecse_gen.ecse_ops import from_join_set_item, run_ecse_pipeline_with_pruning
-from ecse_gen.mv_emitter import emit_mv_candidates
+from ecse_gen.mv_emitter import emit_mv_candidates, extract_groupby_info_from_qb, GroupingType
 from ecse_gen.output_writer import write_mv_candidates, write_qb_joins, write_mv_column_map
 
 import sqlglot
@@ -111,7 +111,23 @@ def main():
             # Track eligibility stats
             if eligibility.eligible:
                 eligible_qbs += 1
-                join_set_collection.add_from_qb_graph(graph)
+                # Extract grouping info for ROLLUP/CUBE separation
+                base_tables = {inst.base_table.lower() for inst in graph.vertices}
+                alias_to_table = {
+                    inst.instance_id.lower(): inst.base_table
+                    for inst in graph.vertices
+                }
+                groupby_info = extract_groupby_info_from_qb(
+                    qb, base_tables, alias_to_table, schema_meta
+                )
+                grouping_signature = groupby_info.grouping_signature
+                has_rollup = groupby_info.grouping_type != GroupingType.SIMPLE
+
+                join_set_collection.add_from_qb_graph(
+                    graph,
+                    grouping_signature=grouping_signature,
+                    has_rollup_semantics=has_rollup,
+                )
             if eligibility.disconnected:
                 disconnected_qbs += 1
 

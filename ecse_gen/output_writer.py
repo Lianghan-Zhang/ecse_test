@@ -6,7 +6,12 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from ecse_gen.mv_emitter import MVCandidate, ColumnMapping
+from ecse_gen.mv_emitter import (
+    MVCandidate,
+    ColumnMapping,
+    GroupingType,
+    RollupStrategy,
+)
 
 
 def write_mv_candidates(
@@ -44,6 +49,11 @@ def write_mv_candidates(
             edges = mv.edges
             columns = mv.columns
             warnings = mv.warnings
+            # ROLLUP support fields
+            grouping_type = mv.grouping_type
+            grouping_signature = mv.grouping_signature
+            rollup_strategy = mv.rollup_strategy
+            rollup_strategy_reason = mv.rollup_strategy_reason
         else:
             # Dict format (legacy)
             name = mv.get("name", "mv_unknown")
@@ -54,6 +64,11 @@ def write_mv_candidates(
             edges = mv.get("edges", [])
             columns = mv.get("columns", [])
             warnings = mv.get("warnings", [])
+            # ROLLUP support fields (default)
+            grouping_type = GroupingType.SIMPLE
+            grouping_signature = ""
+            rollup_strategy = RollupStrategy.PRESERVE
+            rollup_strategy_reason = ""
 
         # Format edges for comment
         if edges:
@@ -85,6 +100,13 @@ def write_mv_candidates(
         lines.append(f"-- Edges: {edges_comment}")
         lines.append(f"-- QBs: {', '.join(qb_ids[:5])}" + (f", ... ({len(qb_ids)} total)" if len(qb_ids) > 5 else ""))
         lines.append(f"-- Columns: {columns_comment}")
+
+        # ROLLUP/CUBE/GROUPING_SETS info
+        if grouping_type != GroupingType.SIMPLE:
+            lines.append(f"-- Grouping: {grouping_type.value}")
+            if grouping_signature:
+                lines.append(f"-- Grouping Signature: {grouping_signature}")
+            lines.append(f"-- Strategy: {rollup_strategy.value} ({rollup_strategy_reason})")
 
         if warnings:
             for w in warnings:
@@ -203,11 +225,23 @@ def write_mv_column_map(
             column_map = mv.column_map
             tables = mv.tables
             fact_table = mv.fact_table
+            # ROLLUP support fields
+            grouping_type = mv.grouping_type
+            grouping_signature = mv.grouping_signature
+            rollup_strategy = mv.rollup_strategy
+            rollup_strategy_reason = mv.rollup_strategy_reason
+            has_rollup_semantics = mv.has_rollup_semantics
         else:
             mv_name = mv.get("name", "")
             column_map = mv.get("column_map", [])
             tables = mv.get("tables", [])
             fact_table = mv.get("fact_table")
+            # ROLLUP support fields (default)
+            grouping_type = GroupingType.SIMPLE
+            grouping_signature = ""
+            rollup_strategy = RollupStrategy.PRESERVE
+            rollup_strategy_reason = ""
+            has_rollup_semantics = False
 
         # Build structured mapping
         group_by_map: dict[str, str] = {}
@@ -228,11 +262,22 @@ def write_mv_column_map(
             elif kind == "aggregate":
                 aggregate_map[original] = alias
 
+        # Build rollup_info
+        rollup_info = {
+            "grouping_type": grouping_type.value,
+            "strategy": rollup_strategy.value,
+            "strategy_reason": rollup_strategy_reason,
+            "has_rollup_semantics": has_rollup_semantics,
+        }
+        if grouping_signature:
+            rollup_info["grouping_signature"] = grouping_signature
+
         mv_maps[mv_name] = {
             "fact_table": fact_table,
             "tables": tables,
             "group_by_columns": group_by_map,
             "aggregates": aggregate_map,
+            "rollup_info": rollup_info,
         }
 
     output = {

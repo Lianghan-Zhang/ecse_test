@@ -33,15 +33,33 @@ class ECSEJoinSet:
     Attributes:
         edges: Canonical edge keys (frozenset for hashing)
         instances: Table instances involved (instance_id + base_table)
+        grouping_signature: Signature for ROLLUP/CUBE/GROUPING SETS (included in hash/eq)
         qb_ids: Original QB IDs that contributed to this set
         lineage: List of operations that created/modified this set
         fact_table: Fact table (base_table name) for this join set
+        has_rollup_semantics: Whether any contributing QB has ROLLUP/CUBE semantics
     """
     edges: frozenset["CanonicalEdgeKey"]
     instances: frozenset[TableInstance]  # Changed from tables: frozenset[str]
-    qb_ids: set[str]
+    grouping_signature: str = ""  # ROLLUP/CUBE signature for equivalence
+    qb_ids: set[str] = field(default_factory=set)
     lineage: list[str] = field(default_factory=list)
     fact_table: str | None = None
+    has_rollup_semantics: bool = False  # True if ROLLUP/CUBE/GROUPING_SETS
+
+    def __hash__(self):
+        """Hash includes edges, instances, and grouping_signature."""
+        return hash((self.edges, self.instances, self.grouping_signature))
+
+    def __eq__(self, other):
+        """Equality includes edges, instances, and grouping_signature."""
+        if not isinstance(other, ECSEJoinSet):
+            return False
+        return (
+            self.edges == other.edges
+            and self.instances == other.instances
+            and self.grouping_signature == other.grouping_signature
+        )
 
     def edge_count(self) -> int:
         """Return number of edges."""
@@ -60,9 +78,11 @@ class ECSEJoinSet:
         return ECSEJoinSet(
             edges=self.edges,
             instances=self.instances,
+            grouping_signature=self.grouping_signature,
             qb_ids=set(self.qb_ids),
             lineage=list(self.lineage),
             fact_table=self.fact_table,
+            has_rollup_semantics=self.has_rollup_semantics,
         )
 
     def to_dict(self) -> dict:
@@ -79,17 +99,35 @@ class ECSEJoinSet:
             "fact_table": self.fact_table,
             "edge_count": self.edge_count(),
             "table_count": self.table_count(),
+            "grouping_signature": self.grouping_signature,
+            "has_rollup_semantics": self.has_rollup_semantics,
         }
 
 
-def from_join_set_item(item: "JoinSetItem") -> ECSEJoinSet:
-    """Create ECSEJoinSet from JoinSetItem."""
+def from_join_set_item(
+    item: "JoinSetItem",
+    grouping_signature: str | None = None,
+    has_rollup_semantics: bool | None = None,
+) -> ECSEJoinSet:
+    """Create ECSEJoinSet from JoinSetItem.
+
+    Args:
+        item: JoinSetItem to convert
+        grouping_signature: Override grouping signature (uses item.grouping_signature if None)
+        has_rollup_semantics: Override rollup semantics (uses item.has_rollup_semantics if None)
+    """
+    # Use item's fields if not explicitly overridden
+    sig = grouping_signature if grouping_signature is not None else item.grouping_signature
+    rollup = has_rollup_semantics if has_rollup_semantics is not None else item.has_rollup_semantics
+
     return ECSEJoinSet(
         edges=item.edges,
         instances=item.instances,
+        grouping_signature=sig,
         qb_ids=set(item.qb_ids),
         lineage=[f"original({','.join(sorted(item.qb_ids))})"],
         fact_table=item.fact_table,
+        has_rollup_semantics=rollup,
     )
 
 
@@ -99,34 +137,41 @@ def from_join_set_item(item: "JoinSetItem") -> ECSEJoinSet:
 
 def js_equivalence(joinsets: list[ECSEJoinSet]) -> list[ECSEJoinSet]:
     """
-    JS-Equivalence: Merge joinsets with identical edge sets.
+    JS-Equivalence: Merge joinsets with identical edge sets AND grouping signatures.
 
-    Two joinsets are equivalent if they have the same set of canonical edges.
+    Two joinsets are equivalent if they have:
+    - Same set of canonical edges
+    - Same grouping signature (ROLLUP/CUBE/GROUPING_SETS semantics)
+
+    Different grouping signatures prevent merging to preserve semantic correctness.
     Merging combines their qb_ids and lineage.
 
     Args:
         joinsets: List of ECSEJoinSet objects
 
     Returns:
-        List of merged ECSEJoinSet objects (deduplicated by edge set)
+        List of merged ECSEJoinSet objects (deduplicated by edge set + grouping signature)
     """
-    # Map from edge signature to merged joinset
-    edge_sig_map: dict[frozenset, ECSEJoinSet] = {}
+    # Map from (edges, grouping_signature) to merged joinset
+    sig_map: dict[tuple[frozenset, str], ECSEJoinSet] = {}
 
     for js in joinsets:
-        sig = js.edges
-        if sig in edge_sig_map:
+        # Include grouping_signature in equivalence key
+        sig = (js.edges, js.grouping_signature)
+        if sig in sig_map:
             # Merge: combine qb_ids and update lineage
-            existing = edge_sig_map[sig]
+            existing = sig_map[sig]
             existing.qb_ids.update(js.qb_ids)
             existing.lineage.append(f"equiv_merge({','.join(sorted(js.qb_ids))})")
+            # Merge has_rollup_semantics (OR logic)
+            existing.has_rollup_semantics = existing.has_rollup_semantics or js.has_rollup_semantics
         else:
-            # New unique edge set
+            # New unique edge set + grouping signature
             new_js = js.copy()
             new_js.lineage.append("equiv_kept")
-            edge_sig_map[sig] = new_js
+            sig_map[sig] = new_js
 
-    return list(edge_sig_map.values())
+    return list(sig_map.values())
 
 
 # =============================================================================
@@ -195,6 +240,8 @@ def js_intersection(
     Only keep intersections that:
     1. Have at least min_edges edges
     2. Form a connected graph
+    3. Both parent joinsets have SIMPLE grouping (no ROLLUP semantics)
+       - This prevents losing ROLLUP columns when tables are dropped
 
     No transitive closure - only direct pairwise intersections.
 
@@ -214,6 +261,11 @@ def js_intersection(
             js1 = joinsets[i]
             js2 = joinsets[j]
 
+            # Skip intersection if either joinset has ROLLUP semantics
+            # because intersection may drop tables containing ROLLUP columns
+            if js1.has_rollup_semantics or js2.has_rollup_semantics:
+                continue
+
             # Compute edge intersection
             intersection_edges = js1.edges & js2.edges
 
@@ -230,16 +282,18 @@ def js_intersection(
                 continue
             seen_sigs.add(intersection_edges)
 
-            # Create new joinset
+            # Create new joinset (SIMPLE grouping since both parents are SIMPLE)
             instances = _compute_instances_from_edges(intersection_edges)
             combined_qbs = js1.qb_ids | js2.qb_ids
 
             new_js = ECSEJoinSet(
                 edges=intersection_edges,
                 instances=instances,
+                grouping_signature="",  # Intersection produces SIMPLE grouping
                 qb_ids=combined_qbs,
                 lineage=[f"intersect({i},{j})"],
                 fact_table=js1.fact_table,
+                has_rollup_semantics=False,
             )
             new_joinsets.append(new_js)
 

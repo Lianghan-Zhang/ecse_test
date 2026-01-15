@@ -14,6 +14,7 @@ Key features:
 import json
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -193,6 +194,73 @@ class ColumnRef:
             return None
 
         return None
+
+
+# ============================================================================
+# ROLLUP/CUBE/GROUPING SETS Support (Phase 1: Data Structures)
+# ============================================================================
+
+class GroupingType(Enum):
+    """Type of GROUP BY clause."""
+    SIMPLE = "simple"           # GROUP BY a, b
+    ROLLUP = "rollup"           # GROUP BY ROLLUP(a, b)
+    CUBE = "cube"               # GROUP BY CUBE(a, b)
+    GROUPING_SETS = "grouping_sets"  # GROUP BY GROUPING SETS(...)
+    MIXED = "mixed"             # GROUP BY a, ROLLUP(b) - sqlglot normalizes this
+
+
+class AggregateCategory(Enum):
+    """Category of aggregate function for rollup compatibility."""
+    DISTRIBUTIVE = "distributive"  # SUM, COUNT, MIN, MAX - can safely rollup
+    ALGEBRAIC = "algebraic"        # AVG, STDDEV - needs decomposition
+    HOLISTIC = "holistic"          # MEDIAN, PERCENTILE - cannot rollup
+
+
+# Mapping from aggregate function name to category
+AGG_CATEGORY_MAP: dict[str, AggregateCategory] = {
+    "sum": AggregateCategory.DISTRIBUTIVE,
+    "count": AggregateCategory.DISTRIBUTIVE,
+    "min": AggregateCategory.DISTRIBUTIVE,
+    "max": AggregateCategory.DISTRIBUTIVE,
+    "avg": AggregateCategory.ALGEBRAIC,
+    "stddev": AggregateCategory.ALGEBRAIC,
+    "stddevsamp": AggregateCategory.ALGEBRAIC,
+    "stddevpop": AggregateCategory.ALGEBRAIC,
+    "variance": AggregateCategory.ALGEBRAIC,
+    "variancepop": AggregateCategory.ALGEBRAIC,
+    # HOLISTIC aggregates (will be added as encountered)
+    "median": AggregateCategory.HOLISTIC,
+    "percentile": AggregateCategory.HOLISTIC,
+    "percentile_approx": AggregateCategory.HOLISTIC,
+}
+
+
+def get_aggregate_category(func_name: str) -> AggregateCategory:
+    """Get category for an aggregate function."""
+    return AGG_CATEGORY_MAP.get(func_name.lower(), AggregateCategory.DISTRIBUTIVE)
+
+
+class RollupStrategy(Enum):
+    """Strategy for handling ROLLUP/CUBE in MV generation."""
+    PRESERVE = "preserve"       # Preserve original ROLLUP/CUBE syntax (default)
+    DETAIL_ONLY = "detail_only" # Only output finest granularity
+    SKIP = "skip"               # Skip MV generation (e.g., HOLISTIC aggregates)
+
+
+@dataclass
+class GroupByInfo:
+    """Complete GROUP BY information including ROLLUP/CUBE/GROUPING SETS."""
+    grouping_type: GroupingType
+    detail_columns: list["ColumnRef"]  # All columns at finest granularity
+    rollup_columns: list["ColumnRef"] | None = None
+    cube_columns: list["ColumnRef"] | None = None
+    grouping_sets_columns: list[tuple["ColumnRef", ...]] | None = None
+    grouping_signature: str = ""  # For ECSE equivalence checking
+    has_rollup: bool = False
+    has_cube: bool = False
+    has_grouping_sets: bool = False
+    original_group_clause: "exp.Expression | None" = None  # For SQL regeneration
+    warnings: list[str] = field(default_factory=list)
 
 
 # ============================================================================
@@ -509,6 +577,51 @@ def remap_columns_to_joinset(
     return remapped, warnings, is_valid
 
 
+def remap_columns_list_to_joinset(
+    columns: list["ColumnRef"],
+    instances: frozenset["TableInstance"],
+) -> tuple[list["ColumnRef"], list[str], bool]:
+    """
+    Remap a list of ColumnRefs to match joinset instances, preserving order.
+
+    Unlike remap_columns_to_joinset which uses sets, this function:
+    - Preserves the original column order (important for ROLLUP/CUBE)
+    - Skips columns that cannot be remapped (with warning)
+    - Returns is_valid=True only if ALL columns were remapped
+
+    Args:
+        columns: List of ColumnRef to remap (order preserved)
+        instances: Set of TableInstance from joinset
+
+    Returns:
+        Tuple of (remapped_columns, warnings, is_valid)
+    """
+    warnings: list[str] = []
+    remapped: list[ColumnRef] = []
+
+    # Build lookup structures
+    valid_instance_ids = {inst.instance_id.lower() for inst in instances}
+    base_to_instances: dict[str, list[str]] = {}
+    for inst in instances:
+        base = inst.base_table.lower()
+        if base not in base_to_instances:
+            base_to_instances[base] = []
+        base_to_instances[base].append(inst.instance_id.lower())
+
+    for col in columns:
+        new_col, warning = remap_column_instance_id(col, valid_instance_ids, base_to_instances)
+        if new_col is not None:
+            remapped.append(new_col)
+        else:
+            warnings.append(f"Column {col.instance_id}.{col.column}: could not remap (dropped)")
+        if warning:
+            warnings.append(f"Column {col.instance_id}.{col.column}: {warning}")
+
+    # is_valid only if ALL columns were remapped (important for ROLLUP)
+    is_valid = len(remapped) == len(columns)
+    return remapped, warnings, is_valid
+
+
 def remap_aggregates_to_joinset(
     aggregates: list["AggregateExpr"],
     instances: frozenset["TableInstance"],
@@ -564,6 +677,20 @@ class AggregateExpr:
     column: ColumnRef | None  # Column being aggregated (None for COUNT(*))
     alias: str | None = None  # Output alias
     raw_sql: str | None = None  # Original SQL expression for complex cases
+    category: AggregateCategory = AggregateCategory.DISTRIBUTIVE  # ROLLUP compatibility
+    is_distinct: bool = False  # Has DISTINCT modifier (blocks rollup)
+
+    def __post_init__(self):
+        """Auto-set category based on func if not explicitly set."""
+        if self.category == AggregateCategory.DISTRIBUTIVE:
+            self.category = get_aggregate_category(self.func)
+
+    @property
+    def can_rollup(self) -> bool:
+        """Check if this aggregate can participate in ROLLUP."""
+        if self.is_distinct:
+            return False  # DISTINCT aggregates cannot be rolled up
+        return self.category != AggregateCategory.HOLISTIC
 
     def to_sql(self) -> str:
         """Generate SQL string for this aggregate.
@@ -626,6 +753,12 @@ class MVCandidate:
     aggregates: list[AggregateExpr] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     column_map: list[ColumnMapping] = field(default_factory=list)
+    # ROLLUP/CUBE support fields
+    grouping_type: GroupingType = GroupingType.SIMPLE
+    grouping_signature: str = ""
+    rollup_strategy: RollupStrategy = RollupStrategy.PRESERVE
+    rollup_strategy_reason: str = ""
+    has_rollup_semantics: bool = False
 
 
 def extract_columns_from_qb(
@@ -863,6 +996,234 @@ def extract_groupby_from_qb(
                 ))
 
     return group_by_cols
+
+
+def extract_groupby_info_from_qb(
+    qb: "QueryBlock",
+    base_tables: set[str],
+    alias_to_table: dict[str, str],
+    schema_meta: "SchemaMeta | None" = None,
+) -> GroupByInfo:
+    """
+    Extract complete GROUP BY information including ROLLUP/CUBE/GROUPING SETS.
+
+    This function detects and extracts:
+    - Simple GROUP BY columns
+    - ROLLUP columns
+    - CUBE columns
+    - GROUPING SETS columns
+    - MIXED mode (combination of above)
+
+    Args:
+        qb: The QueryBlock
+        base_tables: Set of base table names (lowercase)
+        alias_to_table: Mapping from alias to table name
+        schema_meta: Optional schema metadata for column resolution
+
+    Returns:
+        GroupByInfo with complete grouping information
+    """
+    select_ast = qb.select_ast
+    qb_id = getattr(qb, 'qb_id', None)
+    warnings: list[str] = []
+
+    # Find GROUP BY clause
+    group_clause = select_ast.args.get("group")
+    if not group_clause:
+        return GroupByInfo(
+            grouping_type=GroupingType.SIMPLE,
+            detail_columns=[],
+            grouping_signature="SIMPLE",
+            warnings=warnings,
+        )
+
+    # Helper function to extract columns from expression list
+    def extract_columns_from_exprs(exprs: list) -> list[ColumnRef]:
+        cols: list[ColumnRef] = []
+        for expr in exprs:
+            if isinstance(expr, exp.Column):
+                raw_qualifier = expr.table
+                table_ref = expr.table
+                col_name = expr.name
+
+                if not col_name:
+                    continue
+
+                resolved_base_table = None
+                instance_id = None
+
+                if table_ref:
+                    table_ref_lower = table_ref.lower()
+                    instance_id = table_ref_lower
+                    if table_ref_lower in alias_to_table:
+                        resolved_base_table = alias_to_table[table_ref_lower]
+                    elif table_ref_lower in base_tables:
+                        resolved_base_table = table_ref_lower
+                else:
+                    if schema_meta is not None:
+                        resolved_base_table = schema_meta.resolve_column(col_name.lower(), base_tables)
+                        instance_id = resolved_base_table
+                    if resolved_base_table is None:
+                        continue
+
+                if resolved_base_table and resolved_base_table in base_tables:
+                    if schema_meta is not None and not schema_meta.has_column(resolved_base_table, col_name.lower()):
+                        continue
+                    cols.append(ColumnRef(
+                        instance_id=instance_id,
+                        column=col_name.lower(),
+                        base_table=resolved_base_table,
+                        raw_qualifier=raw_qualifier,
+                        qb_id=qb_id,
+                    ))
+        return cols
+
+    # Extract different grouping components
+    simple_exprs = group_clause.expressions if hasattr(group_clause, 'expressions') else []
+    rollup_nodes = group_clause.args.get("rollup", [])
+    cube_nodes = group_clause.args.get("cube", [])
+    grouping_sets_nodes = group_clause.args.get("grouping_sets", [])
+
+    # Extract columns from each component
+    simple_columns = extract_columns_from_exprs(simple_exprs)
+
+    rollup_columns: list[ColumnRef] = []
+    for rollup_node in rollup_nodes:
+        if hasattr(rollup_node, 'expressions'):
+            rollup_columns.extend(extract_columns_from_exprs(rollup_node.expressions))
+
+    cube_columns: list[ColumnRef] = []
+    for cube_node in cube_nodes:
+        if hasattr(cube_node, 'expressions'):
+            cube_columns.extend(extract_columns_from_exprs(cube_node.expressions))
+
+    # GROUPING SETS is more complex - each set is a tuple
+    grouping_sets_columns: list[tuple[ColumnRef, ...]] | None = None
+    if grouping_sets_nodes:
+        grouping_sets_columns = []
+        for gs_node in grouping_sets_nodes:
+            if hasattr(gs_node, 'expressions'):
+                for gs_expr in gs_node.expressions:
+                    # Each grouping set can be a Tuple, Paren, or Column
+                    if isinstance(gs_expr, exp.Tuple):
+                        set_cols = extract_columns_from_exprs(list(gs_expr.expressions) if hasattr(gs_expr, 'expressions') else [])
+                        grouping_sets_columns.append(tuple(set_cols))
+                    elif isinstance(gs_expr, exp.Paren):
+                        inner = gs_expr.this
+                        if isinstance(inner, exp.Column):
+                            set_cols = extract_columns_from_exprs([inner])
+                            grouping_sets_columns.append(tuple(set_cols))
+                        else:
+                            # Empty or complex
+                            grouping_sets_columns.append(())
+                    elif isinstance(gs_expr, exp.Column):
+                        set_cols = extract_columns_from_exprs([gs_expr])
+                        grouping_sets_columns.append(tuple(set_cols))
+
+    # Determine grouping type
+    has_simple = len(simple_columns) > 0
+    has_rollup = len(rollup_columns) > 0
+    has_cube = len(cube_columns) > 0
+    has_grouping_sets = grouping_sets_columns is not None and len(grouping_sets_columns) > 0
+
+    # Count how many grouping modifiers are present
+    modifier_count = sum([has_rollup, has_cube, has_grouping_sets])
+
+    if modifier_count == 0:
+        grouping_type = GroupingType.SIMPLE
+    elif modifier_count > 1:
+        grouping_type = GroupingType.MIXED
+        warnings.append(f"Multiple grouping modifiers detected: rollup={has_rollup}, cube={has_cube}, grouping_sets={has_grouping_sets}")
+    elif has_simple and modifier_count == 1:
+        grouping_type = GroupingType.MIXED  # e.g., GROUP BY a, ROLLUP(b, c)
+    elif has_rollup:
+        grouping_type = GroupingType.ROLLUP
+    elif has_cube:
+        grouping_type = GroupingType.CUBE
+    elif has_grouping_sets:
+        grouping_type = GroupingType.GROUPING_SETS
+    else:
+        grouping_type = GroupingType.SIMPLE
+
+    # Compute detail columns (all columns at finest granularity)
+    detail_columns = simple_columns + rollup_columns + cube_columns
+    if grouping_sets_columns:
+        # For GROUPING SETS, detail is the union of all columns
+        seen = set()
+        for gs in grouping_sets_columns:
+            for col in gs:
+                key = (col.instance_id, col.column)
+                if key not in seen:
+                    detail_columns.append(col)
+                    seen.add(key)
+
+    # Generate grouping signature for ECSE equivalence
+    def cols_to_sig(cols: list[ColumnRef]) -> str:
+        return ",".join(f"{c.instance_id}.{c.column}" for c in sorted(cols, key=lambda x: (x.instance_id, x.column)))
+
+    if grouping_type == GroupingType.SIMPLE:
+        grouping_signature = "SIMPLE"
+    elif grouping_type == GroupingType.ROLLUP:
+        grouping_signature = f"ROLLUP::{cols_to_sig(rollup_columns)}"
+    elif grouping_type == GroupingType.CUBE:
+        grouping_signature = f"CUBE::{cols_to_sig(cube_columns)}"
+    elif grouping_type == GroupingType.GROUPING_SETS:
+        # Signature for grouping sets includes all sets
+        sets_sig = ";".join(cols_to_sig(list(gs)) for gs in (grouping_sets_columns or []))
+        grouping_signature = f"GROUPING_SETS::{sets_sig}"
+    else:  # MIXED
+        parts = []
+        if simple_columns:
+            parts.append(f"SIMPLE::{cols_to_sig(simple_columns)}")
+        if rollup_columns:
+            parts.append(f"ROLLUP::{cols_to_sig(rollup_columns)}")
+        if cube_columns:
+            parts.append(f"CUBE::{cols_to_sig(cube_columns)}")
+        grouping_signature = "|".join(parts)
+
+    return GroupByInfo(
+        grouping_type=grouping_type,
+        detail_columns=detail_columns,
+        rollup_columns=rollup_columns if rollup_columns else None,
+        cube_columns=cube_columns if cube_columns else None,
+        grouping_sets_columns=grouping_sets_columns,
+        grouping_signature=grouping_signature,
+        has_rollup=has_rollup,
+        has_cube=has_cube,
+        has_grouping_sets=has_grouping_sets,
+        original_group_clause=group_clause,
+        warnings=warnings,
+    )
+
+
+def determine_rollup_strategy(
+    groupby_info: GroupByInfo,
+    aggregates: list[AggregateExpr],
+) -> tuple[RollupStrategy, str]:
+    """
+    Determine the rollup strategy for MV generation.
+
+    Decision logic:
+    1. Has HOLISTIC aggregate (MEDIAN/PERCENTILE) → SKIP
+    2. Has COUNT(DISTINCT ...) → SKIP
+    3. Otherwise → PRESERVE
+
+    Args:
+        groupby_info: GroupByInfo with grouping information
+        aggregates: List of aggregate expressions
+
+    Returns:
+        Tuple of (RollupStrategy, reason_string)
+    """
+    # Check for HOLISTIC aggregates
+    for agg in aggregates:
+        if agg.category == AggregateCategory.HOLISTIC:
+            return RollupStrategy.SKIP, f"HOLISTIC aggregate {agg.func} cannot be rolled up"
+        if agg.is_distinct:
+            return RollupStrategy.SKIP, f"DISTINCT aggregate {agg.func} cannot be rolled up"
+
+    # Default: PRESERVE
+    return RollupStrategy.PRESERVE, "All aggregates support rollup"
 
 
 def extract_aggregates_from_qb(
@@ -1462,6 +1823,7 @@ def generate_mv_sql(
     group_by_columns: list[ColumnRef] | None = None,
     aggregates: list[AggregateExpr] | None = None,
     default_alias_map: dict[str, str] | None = None,
+    groupby_info: GroupByInfo | None = None,
 ) -> str:
     """
     Generate the SELECT statement for an MV.
@@ -1473,6 +1835,10 @@ def generate_mv_sql(
     - Aggregates: Always add alias (required for meaningful names)
     - Tables without explicit aliases use default aliases from mapping
 
+    ROLLUP/CUBE/GROUPING_SETS support:
+    - If groupby_info is provided and has non-SIMPLE grouping_type, uses original_group_clause
+    - The original GROUP BY clause is preserved via sqlglot's SQL generation
+
     Args:
         instances: Ordered list of TableInstance objects
         join_specs: List of (join_type, instance, edges_list) tuples where edges_list
@@ -1482,6 +1848,7 @@ def generate_mv_sql(
         group_by_columns: Optional list of GROUP BY columns
         aggregates: Optional list of aggregate expressions
         default_alias_map: Optional mapping of table name -> default alias
+        groupby_info: Optional GroupByInfo with ROLLUP/CUBE/GROUPING_SETS information
 
     Returns:
         SQL SELECT statement string (formatted by sqlglot)
@@ -1609,12 +1976,77 @@ def generate_mv_sql(
     sql = f"SELECT\n    {select_clause}\nFROM {full_from}"
 
     # Add GROUP BY clause if we have group by columns
-    if group_by_columns:
-        group_by_items = [
-            f"{get_col_alias(col)}.{col.column}"
-            for col in sorted(group_by_columns, key=lambda c: (c.table, c.column))
-        ]
-        sql += f"\nGROUP BY {', '.join(group_by_items)}"
+    # ROLLUP/CUBE/GROUPING_SETS support: use groupby_info if available
+    if group_by_columns or (groupby_info and groupby_info.grouping_type != GroupingType.SIMPLE):
+        # Determine grouping type
+        grouping_type = GroupingType.SIMPLE
+        if groupby_info:
+            grouping_type = groupby_info.grouping_type
+
+        # Build column references for GROUP BY
+        def build_col_ref(col: ColumnRef) -> str:
+            return f"{get_col_alias(col)}.{col.column}"
+
+        if grouping_type == GroupingType.SIMPLE or groupby_info is None:
+            # Simple GROUP BY
+            if group_by_columns:
+                group_by_items = [
+                    build_col_ref(col)
+                    for col in sorted(group_by_columns, key=lambda c: (c.table, c.column))
+                ]
+                sql += f"\nGROUP BY {', '.join(group_by_items)}"
+
+        elif grouping_type == GroupingType.ROLLUP:
+            # GROUP BY ROLLUP(cols)
+            rollup_cols = groupby_info.rollup_columns or groupby_info.detail_columns
+            rollup_items = [build_col_ref(col) for col in rollup_cols]
+            sql += f"\nGROUP BY ROLLUP ({', '.join(rollup_items)})"
+
+        elif grouping_type == GroupingType.CUBE:
+            # GROUP BY CUBE(cols)
+            cube_cols = groupby_info.cube_columns or groupby_info.detail_columns
+            cube_items = [build_col_ref(col) for col in cube_cols]
+            sql += f"\nGROUP BY CUBE ({', '.join(cube_items)})"
+
+        elif grouping_type == GroupingType.GROUPING_SETS:
+            # GROUP BY GROUPING SETS((a, b), (a), ())
+            if groupby_info.grouping_sets_columns:
+                sets_sql = []
+                for gs in groupby_info.grouping_sets_columns:
+                    if not gs:
+                        sets_sql.append("()")
+                    else:
+                        cols_str = ", ".join(build_col_ref(col) for col in gs)
+                        sets_sql.append(f"({cols_str})")
+                sql += f"\nGROUP BY GROUPING SETS ({', '.join(sets_sql)})"
+            elif group_by_columns:
+                # Fallback to simple
+                group_by_items = [build_col_ref(col) for col in sorted(group_by_columns, key=lambda c: (c.table, c.column))]
+                sql += f"\nGROUP BY {', '.join(group_by_items)}"
+
+        elif grouping_type == GroupingType.MIXED:
+            # GROUP BY a, ROLLUP(b, c) - sqlglot normalizes to: a, ROLLUP(b, c)
+            parts = []
+            # Add simple columns first
+            if groupby_info.detail_columns:
+                simple_cols = [c for c in groupby_info.detail_columns
+                              if c not in (groupby_info.rollup_columns or [])
+                              and c not in (groupby_info.cube_columns or [])]
+                if simple_cols:
+                    parts.extend(build_col_ref(col) for col in simple_cols)
+
+            # Add ROLLUP
+            if groupby_info.rollup_columns:
+                rollup_items = [build_col_ref(col) for col in groupby_info.rollup_columns]
+                parts.append(f"ROLLUP ({', '.join(rollup_items)})")
+
+            # Add CUBE
+            if groupby_info.cube_columns:
+                cube_items = [build_col_ref(col) for col in groupby_info.cube_columns]
+                parts.append(f"CUBE ({', '.join(cube_items)})")
+
+            if parts:
+                sql += f"\nGROUP BY {', '.join(parts)}"
 
     # Use sqlglot to parse and reformat for consistent output
     try:
@@ -1679,6 +2111,8 @@ def emit_mv_candidates(
         all_aggregates: list[AggregateExpr] = []
         # Track aggregates by key for deduplication and alias consistency check
         agg_by_key: dict[tuple, AggregateExpr] = {}
+        # Track GroupByInfo for ROLLUP/CUBE/GROUPING_SETS support
+        merged_groupby_info: GroupByInfo | None = None
 
         for qb_id in js.qb_ids:
             if qb_id not in qb_map:
@@ -1701,6 +2135,18 @@ def emit_mv_candidates(
             # Extract GROUP BY columns (with schema-based resolution)
             group_by_cols = extract_groupby_from_qb(qb, base_tables, alias_to_table, schema_meta)
             all_group_by.update(group_by_cols)
+
+            # Extract GroupByInfo for ROLLUP/CUBE support
+            qb_groupby_info = extract_groupby_info_from_qb(qb, base_tables, alias_to_table, schema_meta)
+            # Track GroupByInfo - use first non-SIMPLE one, or merge
+            if qb_groupby_info.grouping_type != GroupingType.SIMPLE:
+                if merged_groupby_info is None:
+                    merged_groupby_info = qb_groupby_info
+                elif merged_groupby_info.grouping_signature != qb_groupby_info.grouping_signature:
+                    # Different grouping signatures - this shouldn't happen if ECSE used grouping_signature
+                    merged_groupby_info.warnings.append(
+                        f"Conflicting grouping signatures in qbset: {qb_groupby_info.grouping_signature}"
+                    )
 
             # Extract aggregates (with schema-based resolution for unqualified columns)
             aggs = extract_aggregates_from_qb(qb, base_tables, alias_to_table, schema_meta)
@@ -1812,6 +2258,28 @@ def emit_mv_candidates(
         columns_list = sorted(all_columns, key=lambda c: (c.table, c.column))
         group_by_list = sorted(all_group_by, key=lambda c: (c.table, c.column))
 
+        # Remap GroupByInfo columns to match joinset instances if needed
+        if merged_groupby_info:
+            # Remap detail_columns (order not important)
+            remapped_detail, _, _ = remap_columns_to_joinset(
+                set(merged_groupby_info.detail_columns), instances
+            )
+            merged_groupby_info.detail_columns = list(remapped_detail)
+
+            # Remap rollup_columns (ORDER IS IMPORTANT for ROLLUP semantics)
+            if merged_groupby_info.rollup_columns:
+                remapped_rollup, _, _ = remap_columns_list_to_joinset(
+                    merged_groupby_info.rollup_columns, instances
+                )
+                merged_groupby_info.rollup_columns = remapped_rollup
+
+            # Remap cube_columns (ORDER IS IMPORTANT for CUBE semantics)
+            if merged_groupby_info.cube_columns:
+                remapped_cube, _, _ = remap_columns_list_to_joinset(
+                    merged_groupby_info.cube_columns, instances
+                )
+                merged_groupby_info.cube_columns = remapped_cube
+
         sql = generate_mv_sql(
             ordered_instances,
             join_specs,
@@ -1820,10 +2288,25 @@ def emit_mv_candidates(
             group_by_columns=group_by_list if group_by_list else None,
             aggregates=all_aggregates if all_aggregates else None,
             default_alias_map=default_alias_map,
+            groupby_info=merged_groupby_info,
         )
 
         # Build column mapping for rewrite
         column_map = _build_column_map(group_by_list, all_aggregates)
+
+        # Determine rollup strategy
+        grouping_type = GroupingType.SIMPLE
+        grouping_signature = ""
+        rollup_strategy = RollupStrategy.PRESERVE
+        rollup_strategy_reason = "No ROLLUP semantics"
+        has_rollup_semantics = js.has_rollup_semantics
+
+        if merged_groupby_info:
+            grouping_type = merged_groupby_info.grouping_type
+            grouping_signature = merged_groupby_info.grouping_signature
+            rollup_strategy, rollup_strategy_reason = determine_rollup_strategy(
+                merged_groupby_info, all_aggregates
+            )
 
         candidates.append(MVCandidate(
             name=mv_name,
@@ -1837,6 +2320,11 @@ def emit_mv_candidates(
             aggregates=all_aggregates,
             warnings=warnings,
             column_map=column_map,
+            grouping_type=grouping_type,
+            grouping_signature=grouping_signature,
+            rollup_strategy=rollup_strategy,
+            rollup_strategy_reason=rollup_strategy_reason,
+            has_rollup_semantics=has_rollup_semantics,
         ))
 
     return candidates

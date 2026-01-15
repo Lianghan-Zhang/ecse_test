@@ -15,7 +15,10 @@
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python -m pytest tests/test_ecse_ops.py -v --tb=short)",
       "Bash(python -m pytest:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(source:*)",
+      "Bash(conda activate:*)"
     ]
   }
 }
